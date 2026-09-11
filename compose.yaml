@@ -1,0 +1,9 @@
+services:
+  goat:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      STATE_PATH: /data/state.json
+    volumes:
+      - ./data:/data

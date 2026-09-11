@@ -1,0 +1,7 @@
+.git
+.env
+data
+state.json
+state.json.tmp
+*.exe
+README.md
