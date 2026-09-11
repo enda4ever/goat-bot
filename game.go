@@ -372,23 +372,31 @@ func (g *Game) historyData() ([]Reign, int) {
 }
 
 func (g *Game) ensureRole() error {
-	if g.s.GoatRoleID != "" {
-		_, err := g.dg.GuildRole(g.cfg.GuildID, g.s.GoatRoleID)
-		if err == nil {
+	roles, err := g.dg.GuildRoles(g.cfg.GuildID)
+	if err != nil {
+		return err
+	}
+	for _, r := range roles {
+		if r.ID == g.s.GoatRoleID && g.s.GoatRoleID != "" {
 			return nil
 		}
-		if !isNotFound(err) {
-			return err
+	}
+	for _, r := range roles {
+		if r.Name == goatRoleName {
+			g.s.GoatRoleID = r.ID
+			g.save()
+			return nil
 		}
+	}
+	if g.s.GoatRoleID != "" {
 		log.Printf("discord: goat role %s is gone, creating a new one", g.s.GoatRoleID)
 	}
 
-	name := goatRoleName
 	color := goatRoleColor
 	hoist := true
 	mentionable := false
 	role, err := g.dg.GuildRoleCreate(g.cfg.GuildID, &discordgo.RoleParams{
-		Name:        &name,
+		Name:        goatRoleName,
 		Color:       &color,
 		Hoist:       &hoist,
 		Mentionable: &mentionable,

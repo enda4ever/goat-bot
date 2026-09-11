@@ -11,7 +11,7 @@ type Discord interface {
 	GuildMember(guildID, userID string, options ...discordgo.RequestOption) (*discordgo.Member, error)
 	GuildMemberRoleAdd(guildID, userID, roleID string, options ...discordgo.RequestOption) error
 	GuildMemberRoleRemove(guildID, userID, roleID string, options ...discordgo.RequestOption) error
-	GuildRole(guildID, roleID string, options ...discordgo.RequestOption) (*discordgo.Role, error)
+	GuildRoles(guildID string, options ...discordgo.RequestOption) ([]*discordgo.Role, error)
 	GuildRoleCreate(guildID string, data *discordgo.RoleParams, options ...discordgo.RequestOption) (*discordgo.Role, error)
 	ChannelMessageSendComplex(channelID string, data *discordgo.MessageSend, options ...discordgo.RequestOption) (*discordgo.Message, error)
 }

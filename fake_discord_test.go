@@ -88,11 +88,8 @@ func (f *fakeDiscord) GuildMemberRoleRemove(guildID, userID, roleID string, opti
 	return nil
 }
 
-func (f *fakeDiscord) GuildRole(guildID, roleID string, options ...discordgo.RequestOption) (*discordgo.Role, error) {
-	if roleID == "" {
-		return nil, notFound()
-	}
-	return &discordgo.Role{ID: roleID, Name: goatRoleName}, nil
+func (f *fakeDiscord) GuildRoles(guildID string, options ...discordgo.RequestOption) ([]*discordgo.Role, error) {
+	return []*discordgo.Role{{ID: "role-goat", Name: goatRoleName}}, nil
 }
 
 func (f *fakeDiscord) GuildRoleCreate(guildID string, data *discordgo.RoleParams, options ...discordgo.RequestOption) (*discordgo.Role, error) {
