@@ -1,10 +1,5 @@
 # Goat Bot
-##### A discord bot, customly made for Netherwilds discord server.
-```txt
-===========================================================================
-   J O I N - T H E - P E A S A N T - U P R I S I N G - O C T - N I N T H.  
-===========================================================================
-```
+##### a discord bot, customly made, about goat theft
 
 #### THE IDEA:
 Admin will select the first goat holder (role). But fear not! All members of the server will have the opportunity to steal the goat for themselves, once per hour. One of the theives will be randomly selected to become the next 'goat holder' and so forth.
