@@ -1,4 +1,4 @@
-package main
+package bot
 
 import (
 	"bufio"
@@ -13,7 +13,7 @@ type Config struct {
 	StatePath string
 }
 
-func loadConfig() (Config, error) {
+func LoadConfig() (Config, error) {
 	loadDotEnv(".env")
 
 	c := Config{

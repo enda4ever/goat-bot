@@ -8,17 +8,19 @@ import (
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
+
+	"goat-bot/internal/bot"
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags)
 
-	cfg, err := loadConfig()
+	cfg, err := bot.LoadConfig()
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
 
-	store := FileStore{Path: cfg.StatePath}
+	store := bot.FileStore{Path: cfg.StatePath}
 	state, err := store.Load()
 	if err != nil {
 		log.Fatalf("state: could not read %s: %v", cfg.StatePath, err)
@@ -31,9 +33,9 @@ func main() {
 	session.Identify.Intents = discordgo.IntentsGuilds
 
 	rng := rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
-	game := NewGame(cfg, session, store, state, rng)
+	game := bot.NewGame(cfg, session, store, state, rng)
 
-	session.AddHandler(handler{game: game}.route)
+	session.AddHandler(game.Route)
 	session.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Printf("discord: connected as %s", r.User.String())
 	})
@@ -48,7 +50,7 @@ func main() {
 
 	game.EnsureRoleAtStartup()
 
-	if _, err := session.ApplicationCommandBulkOverwrite(session.State.User.ID, cfg.GuildID, commandDefs()); err != nil {
+	if _, err := session.ApplicationCommandBulkOverwrite(session.State.User.ID, cfg.GuildID, bot.CommandDefs()); err != nil {
 		log.Printf("discord: could not register commands: %v", err)
 	} else {
 		log.Printf("discord: commands registered for guild %s", cfg.GuildID)

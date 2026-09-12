@@ -28,7 +28,7 @@ Now the important bit, and the one that goes wrong: in Server Settings, Roles, d
 
 Last thing, the bot needs to know which server it's in. Turn on Developer Mode (User Settings, Advanced), right click the server, Copy Server ID, and drop that into `.env` as `GUILD_ID`.
 
-Then `go run .`, and once it's up, `/goat config channel:#wherever` followed by `/goat setup`. The goat is now loose.
+Then `go run ./cmd/goat-bot`, and once it's up, `/goat config channel:#wherever` followed by `/goat setup`. The goat is now loose.
 
 There's no web server and no ports to open, by the way. The bot phones out to Discord and keeps the line open, so it runs happily from a laptop behind a router. It only plays the game while it's actually running though. For leaving it up unattended there's a `compose.yaml`, so `docker compose up -d --build` will keep it alive through crashes and reboots, and keeps the save file in `./data`.
 

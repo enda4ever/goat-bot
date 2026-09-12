@@ -1,4 +1,4 @@
-package main
+package bot
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func commandDefs() []*discordgo.ApplicationCommand {
+func CommandDefs() []*discordgo.ApplicationCommand {
 	return []*discordgo.ApplicationCommand{
 		{
 			Name:        "steal",
@@ -88,6 +88,10 @@ func commandDefs() []*discordgo.ApplicationCommand {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func (g *Game) Route(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	handler{game: g}.route(s, i)
+}
 
 type handler struct {
 	game *Game

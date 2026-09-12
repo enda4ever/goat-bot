@@ -1,6 +1,8 @@
 .env
 state.json
 state.json.tmp
-data/
-goat-bot
-goat-bot.exe
+/data/
+/goat-bot
+/goat-bot.exe
+.DS_Store
+*.test
