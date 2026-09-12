@@ -123,7 +123,7 @@ func (g *Game) memberPresent(userID string) bool {
 		if isNotFound(err) {
 			return false
 		}
-		log.Printf("discord: member lookup for %s failed, assuming present: %v", userID, err)
+		log.Printf("discord: member lookup failed, assuming present: %v", err)
 	}
 	return true
 }
@@ -160,7 +160,7 @@ func (g *Game) resolve() {
 	winner := live[g.rng.IntN(len(live))]
 
 	if err := g.dg.GuildMemberRoleAdd(g.cfg.GuildID, winner, g.s.GoatRoleID); err != nil {
-		log.Printf("discord: could not give the goat role to %s: %v", winner, err)
+		log.Printf("discord: could not give the goat role: %v", err)
 		g.startRound(now)
 		g.save()
 		g.announce(RoleFailedMsg, MsgData{
@@ -174,7 +174,7 @@ func (g *Game) resolve() {
 	loser := g.s.HolderID
 	if loser != "" {
 		if err := g.dg.GuildMemberRoleRemove(g.cfg.GuildID, loser, g.s.GoatRoleID); err != nil {
-			log.Printf("discord: could not take the goat role from %s, continuing anyway: %v", loser, err)
+			log.Printf("discord: could not take the goat role, continuing anyway: %v", err)
 		}
 		g.s.recordReign(now)
 		g.s.TotalTransfers++
@@ -306,7 +306,7 @@ func (g *Game) reset(targetID, actorID string) (MsgData, error) {
 	now := time.Now()
 	if g.s.HolderID != "" && g.s.HolderID != targetID {
 		if err := g.dg.GuildMemberRoleRemove(g.cfg.GuildID, g.s.HolderID, g.s.GoatRoleID); err != nil {
-			log.Printf("discord: could not take the goat role from %s during reset: %v", g.s.HolderID, err)
+			log.Printf("discord: could not take the goat role during reset: %v", err)
 		}
 	}
 	g.s.recordReign(now)
@@ -421,6 +421,6 @@ func (g *Game) ensureRoleAtStartup() {
 		return
 	}
 	if err := g.dg.GuildMemberRoleAdd(g.cfg.GuildID, g.s.HolderID, g.s.GoatRoleID); err != nil {
-		log.Printf("discord: could not restore the goat role on %s: %v", g.s.HolderID, err)
+		log.Printf("discord: could not restore the goat role: %v", err)
 	}
 }

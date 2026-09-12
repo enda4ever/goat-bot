@@ -1,4 +1,4 @@
-module return-the-goat
+module goat-bot
 
 go 1.24
 
