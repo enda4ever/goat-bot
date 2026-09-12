@@ -11,7 +11,7 @@ const (
 	defaultRoundMinutes = 60
 	historyCap          = 50
 	historyShown        = 10
-	goatRoleName        = "🐐 Goat Thief"
+	goatRoleName        = "𓃵 𝕘𝕠𝕒𝕥 𝕥𝕙𝕚𝕖𝕗"
 	goatRoleColor       = 0xC8A165
 )
 

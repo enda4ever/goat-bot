@@ -9,7 +9,7 @@ Admin will select the first goat holder (role). But fear not! All members of the
 #### FEATURES (v1):
 One goat, one holder, one hour at a time. Everybody gets to type `/steal` once per round, and typing it again won't help you. The current holder can't steal from themselves, sadly. When the hour runs out, one of the theives is picked at random and the goat changes hands. If nobody bothered to try, the holder keeps it and their streak goes up by one.
 
-The goat itself is a real Discord role called '🐐 Goat Thief', and the bot is the only thing allowed to hand it out. Sticking a goat in your nickname does nothing, sorry.
+The goat itself is a real Discord role called '𓃵 𝕘𝕠𝕒𝕥 𝕥𝕙𝕚𝕖𝕗', and the bot is the only thing allowed to hand it out. Sticking a goat in your nickname does nothing, sorry.
 
 `/goat status` tells you who has it and how long is left. `/goat history` shows the recent holders and how long each of them clung on. The whole game lives in one little `state.json` file, so the bot can be shut down, updated, and started back up without losing the goat. If it was asleep when an hour ran out, it settles that one round when it wakes up and starts fresh, rather than pretending to play the six hours it missed.
 
