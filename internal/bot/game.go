@@ -90,6 +90,12 @@ func (g *Game) Config(channelID string, minutes int) (data MsgData, err error) {
 	return data, err
 }
 
+func (g *Game) IsHolder(userID string) bool {
+	var ok bool
+	g.do(func() { ok = g.s.started() && g.s.HolderID == userID })
+	return ok
+}
+
 func (g *Game) StatusData() (started, unheld bool, data MsgData) {
 	g.do(func() { started, unheld, data = g.statusData() })
 	return started, unheld, data

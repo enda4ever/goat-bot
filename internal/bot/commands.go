@@ -11,13 +11,14 @@ import (
 func CommandDefs() []*discordgo.ApplicationCommand {
 	return []*discordgo.ApplicationCommand{
 		{
-			Name:        "steal",
-			Description: DescSteal,
-		},
-		{
 			Name:        "goat",
 			Description: DescGoat,
 			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "steal",
+					Description: DescSteal,
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
 				{
 					Name:        "status",
 					Description: DescStatus,
@@ -26,6 +27,11 @@ func CommandDefs() []*discordgo.ApplicationCommand {
 				{
 					Name:        "history",
 					Description: DescHistory,
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+				{
+					Name:        "show",
+					Description: DescShow,
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 				{
@@ -111,17 +117,14 @@ func (h handler) route(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		sub = data.Options[0].Name
 	}
 
-	public := data.Name == "goat" && (sub == "status" || sub == "history")
+	public := data.Name == "goat" && (sub == "status" || sub == "history" || (sub == "show" && h.game.IsHolder(callerID(i))))
 	if err := defer_(s, i, public); err != nil {
 		log.Printf("discord: could not acknowledge interaction: %v", err)
 		return
 	}
 
 	var body string
-	switch {
-	case data.Name == "steal":
-		body = h.steal(i)
-	case data.Name == "goat":
+	if data.Name == "goat" {
 		body = h.goat(i, sub, data)
 	}
 
@@ -152,10 +155,14 @@ func (h handler) steal(i *discordgo.InteractionCreate) string {
 
 func (h handler) goat(i *discordgo.InteractionCreate, sub string, data discordgo.ApplicationCommandInteractionData) string {
 	switch sub {
+	case "steal":
+		return h.steal(i)
 	case "status":
 		return h.status()
 	case "history":
 		return h.history()
+	case "show":
+		return h.show(i)
 	}
 
 	if !isAdmin(i) {
@@ -213,6 +220,20 @@ func (h handler) status() string {
 		return render(StatusUnheldMsg, data)
 	default:
 		return render(StatusMsg, data)
+	}
+}
+
+func (h handler) show(i *discordgo.InteractionCreate) string {
+	started, unheld, data := h.game.StatusData()
+	switch {
+	case !started:
+		return render(NoRoundMsg, data)
+	case unheld:
+		return render(StatusUnheldMsg, data)
+	case data.Holder == mention(callerID(i)):
+		return render(ShowGoatMsg, data)
+	default:
+		return render(ShowNotHolderMsg, data)
 	}
 }
 

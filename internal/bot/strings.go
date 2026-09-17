@@ -74,9 +74,9 @@ var (
 // Sent once, when an admin runs /goat setup and the game begins.
 // Fields: .Holder .Deadline .DeadlineAt .Minutes
 var ClaimedMsg = msg("claimed", "```"+`
-  ────────────────────── ·𖤍· ─────────────────────
-  ! ! !   𝕥 𝕙 𝕖   𝕘 𝕠 𝕒 𝕥    𝕚 𝕤    𝕝 𝕠 𝕠 𝕤 𝕖   ! ! !
- ༺──────────────────────────────────────────────༻
+  ──────── ·𖤍· ────────
+      𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕚𝕤 𝕝𝕠𝕠𝕤𝕖
+ ༺───────────────────༻
 `+"```"+`
 {{.Holder}} holds the goat.
 The next holder is announced {{.Deadline}}.`)
@@ -84,9 +84,9 @@ The next holder is announced {{.Deadline}}.`)
 // Sent at the end of a round in which nobody entered. The holder keeps it.
 // Fields: .Holder .Streak .Deadline .DeadlineAt .HeldSince
 var SurvivedMsg = msg("survived", "```"+`
-  ────────────────────── ·𖤍· ─────────────────────
-  . . .   𝕥 𝕙 𝕖   𝕘 𝕠 𝕒 𝕥   𝕤 𝕥 𝕒 𝕪 𝕤   𝕡 𝕦 𝕥   . . .
- ༺──────────────────────────────────────────────༻
+  ──────── ·𖤍· ────────
+     𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕤𝕥𝕒𝕪𝕤 𝕡𝕦𝕥
+ ༺───────────────────༻
 `+"```"+`
 Not one soul reached for it. {{.Holder}} keeps the goat,
 unchallenged {{.Streak}} rounds running,
@@ -97,9 +97,9 @@ The next thieving is settled {{.Deadline}}.`)
 // drawn from .Challengers and now holds the goat; .Loser held it before.
 // Fields: .Winner .Loser .Challengers .Count .Deadline .DeadlineAt .Total
 var StolenMsg = msg("stolen", "```"+`
-  ────────────────────── ·𖤍· ─────────────────────
-  ! ! !   𝕥 𝕙 𝕖   𝕘 𝕠 𝕒 𝕥   𝕚 𝕤   𝕤 𝕥 𝕠 𝕝 𝕖 𝕟   ! ! !
- ༺──────────────────────────────────────────────༻
+  ──────── ·𖤍· ────────
+      𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕚𝕤 𝕤𝕥𝕠𝕝𝕖𝕟
+ ༺───────────────────༻
 `+"```"+`
 {{.Winner}} has taken the goat from {{.Loser}}.
 {{.Count}} reached for it: {{.Challengers}}.
@@ -111,9 +111,9 @@ The next thieving is settled {{.Deadline}}.`)
 // is a recovery, not a theft: .Winner never beat .Loser, who simply vanished.
 // Fields: .Winner .Loser .Challengers .Count .Deadline .DeadlineAt .Total
 var EscapedRecoveredMsg = msg("escaped_recovered", "```"+`
-  ───────────────────────── ·𖤍· ────────────────────────
-  ! ! !   𝕥 𝕙 𝕖   𝕘 𝕠 𝕒 𝕥   𝕚 𝕤   𝕣 𝕖 𝕔 𝕠 𝕧 𝕖 𝕣 𝕖 𝕕   ! ! !
- ༺────────────────────────────────────────────────────༻
+  ──────── ·𖤍· ────────
+    𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕚𝕤 𝕣𝕖𝕔𝕠𝕧𝕖𝕣𝕖𝕕
+ ༺───────────────────༻
 `+"```"+`
 {{.Loser}} fled the server with the goat under one arm.
 No theft, then, and no glory in it.
@@ -125,9 +125,9 @@ The next thieving is settled {{.Deadline}}.`)
 // now unheld and waiting for the next round's entrants.
 // Fields: .Loser .Deadline .DeadlineAt
 var EscapedUnheldMsg = msg("escaped_unheld", "```"+`
-  ──────────────────────── ·𖤍· ────────────────────────
- 𓂃⠀˖⠀𓇬  𝕥 𝕙 𝕖   𝕘 𝕠 𝕒 𝕥   𝕨 𝕒 𝕟 𝕕 𝕖 𝕣 𝕤   𝕗 𝕣 𝕖 𝕖  𓇬⠀˖⠀𓂃
- ༺───────────────────────────────────────────────────༻
+  ──────── ·𖤍· ────────
+    𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕨𝕒𝕟𝕕𝕖𝕣𝕤 𝕗𝕣𝕖𝕖
+ ༺───────────────────༻
 `+"```"+`
 {{.Loser}} fled the server and the goat went with them.
 Nobody was reaching for it, so it belongs to no one at all.
@@ -136,9 +136,9 @@ It falls to whoever swipes it first, {{.Deadline}}.`)
 // Sent when an admin runs /goat reset and the game restarts on a new holder.
 // Fields: .Holder .Actor .Deadline .DeadlineAt
 var ResetMsg = msg("reset", "```"+`
-  ──────────────────── ·𖤍· ──────────────────
-   𓂃⠀˖⠀𓇬    𝕒   𝕟 𝕖 𝕨   𝕠 𝕣 𝕕 𝕖 𝕣    𓇬⠀˖⠀𓂃⠀ 
- ༺─────────────────────────────────────────༻
+  ──────── ·𖤍· ────────
+        𝕒 𝕟𝕖𝕨 𝕠𝕣𝕕𝕖𝕣
+ ༺───────────────────༻
 `+"```"+`
 {{.Actor}} has torn up the old order.
 {{.Holder}} holds the goat now.
@@ -148,19 +148,19 @@ The next thieving is settled {{.Deadline}}.`)
 // PRIVATE REPLIES  (ephemeral: only the member who ran the command sees these)
 // ---------------------------------------------------------------------------
 
-// /steal succeeded. They are in the draw for this round.
+// /goat steal succeeded. They are in the draw for this round.
 // Fields: .Count .Deadline .DeadlineAt
 var EnteredMsg = msg("entered", `You have attempted to steal the goat! Within the hour, all shall be revealed`)
 
-// /steal when they already entered this round. One entry each, per the rules.
+// /goat steal when they already entered this round. One entry each, per the rules.
 // Fields: .Count .Deadline .DeadlineAt
 var AlreadyEnteredMsg = msg("already_entered", `You have already attempted to steal the goat this hour! Be patient.`)
 
-// /steal by the current holder. They cannot steal from themselves.
+// /goat steal by the current holder. They cannot steal from themselves.
 // Fields: .Streak .Deadline .DeadlineAt
 var YouHoldItMsg = msg("you_hold_it", `The goat is already yours! One cannot steal from oneself. Hold fast, and learn {{.Deadline}} whether anybody swiped it from you.`)
 
-// /steal before /goat setup has ever been run, so there is no round yet.
+// /goat steal before /goat setup has ever been run, so there is no round yet.
 // Fields: none
 var NoRoundMsg = msg("no_round", `Currently NO ONE has the goat. Be patient.`)
 
@@ -193,9 +193,9 @@ var StatusUnheldMsg = msg("status_unheld", `The goat is roaming free! Attempt to
 // with newlines.
 // Fields: .Lines .Total
 var HistoryHeaderMsg = msg("history_header", "```"+`
-  ────────────────── ·𖤍· ──────────────────
- 𓂃⠀˖⠀𓇬    𝕥 𝕙 𝕖  𝕘 𝕠 𝕒 𝕥  𝕝 𝕖 𝕕 𝕘 𝕖 𝕣    𓇬⠀˖⠀𓂃
- ༺───────────────────────────────────────༻
+  ──────── ·𖤍· ────────
+       𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕝𝕖𝕕𝕘𝕖𝕣
+ ༺───────────────────༻
 `+"```"+`
 {{.Total}} keepers have come and gone.
 {{.Lines}}`)
@@ -203,11 +203,33 @@ var HistoryHeaderMsg = msg("history_header", "```"+`
 // One row inside HistoryHeaderMsg's .Lines. Rendered once per past reign.
 // Keep it to a single line.
 // Fields: .User .From .To .Streak
-var HistoryLineMsg = msg("history_line", `{{.User}} held it from {{.From}} until {{.To}}, unchallenged {{.Streak}} rounds of it.`)
+var HistoryLineMsg = msg("history_line", `- {{.User}} held it from {{.From}} until {{.To}}, unchallenged {{.Streak}} rounds of it.`)
 
 // /goat history before anybody has lost the goat.
 // Fields: none
 var HistoryEmptyMsg = msg("history_empty", `The goat has never changed hands. The ledger begins with the first successful theft.`)
+
+// /goat show by the current holder. Public.
+// Fields: .Holder .Streak .HeldSince
+var ShowGoatMsg = msg("show_goat", "```"+`
+⠀⣠⢄⢄⠀⢀⢔⠖⠲⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⣀⠡⠀⣱⠱⣎⢣⡤⢄⡡⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠈⠉⠁⢙⠋⠉⠟⠀⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣦⣦⢄
+⠀⠀⠀⡞⡤⢬⣧⡤⠤⡀⠀⠀⠀⣀⠠⢄⣆⣤⡀⠀⠈⣿⡸
+⠀⠀⢰⡀⠛⠾⠯⠃⠀⠈⠀⠀⠀⠀⠐⠛⠋⠀⢈⣲⠞⠋⠀
+⠀⠀⠘⣧⠀⢀⠆⠀⠀⠀⠀⠀⠀⠀⠀⢀⠀⠀⠞⣸⠀⠀⠀
+⠀⠀⠀⠸⣿⣮⠀⠀⢘⣦⠀⠀⠀⠀⣠⣾⠀⢊⣲⠏⠀⠀⠀
+⠀⠀⠀⠀⠙⢻⣷⠀⣴⠛⠛⠿⠿⠿⠿⠛⡀⢠⡟⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠘⢻⠀⡏⠀⠀⠀⠀⠀⠀⠀⠡⡨⢷⡄⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⣇⣾⠃⠀⠀⠀⠀⠀⠀⠀⠀⣇⠻⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⣿⣼⡀⠀⠀⠀⠀⠀⠀⠀⢠⣟⡇⠀⠀⠀⠀
+⠀⢠⠦⠶⠤⠞⡵⢩⡥⠴⠲⠪⠵⠶⠶⣶⢞⠿⠷⠶⠶⠶⠒
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠀⠀⠀⠀⠀⠀
+`+"```")
+
+// /goat show by anybody else. Ephemeral.
+// Fields: .Holder .Count .Deadline .DeadlineAt
+var ShowNotHolderMsg = msg("show_not_holder", `The goat is not yours. {{.Holder}} has it. Type /goat steal to creep up on it; the next thieving is settled {{.Deadline}}.`)
 
 // ---------------------------------------------------------------------------
 // WARNINGS  (things an admin needs to fix)
@@ -219,9 +241,9 @@ var HistoryEmptyMsg = msg("history_empty", `The goat has never changed hands. Th
 // keeps the goat, so this must not congratulate anyone.
 // Fields: .Winner .Holder .Reason
 var RoleFailedMsg = msg("role_failed", "```"+`
-  ────────────────────────── ·𖤍· ─────────────────────────
-  . . .   𝕥 𝕙 𝕖   𝕘 𝕠 𝕒 𝕥   𝕨 𝕚 𝕝 𝕝   𝕟 𝕠 𝕥   𝕞 𝕠 𝕧 𝕖   . . .
- ༺──────────────────────────────────────────────────────༻
+  ──────── ·𖤍· ────────
+    𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕨𝕚𝕝𝕝 𝕟𝕠𝕥 𝕞𝕠𝕧𝕖
+ ༺───────────────────༻
 `+"```"+`
 The goat could not be handed over, so {{.Holder}} keeps it and nobody has stolen anything.
 Discord said: {{.Reason}}
@@ -250,6 +272,7 @@ var (
 	DescGoat          = "The goat"
 	DescStatus        = "Who has the goat and how long is left"
 	DescHistory       = "Recent goat holders"
+	DescShow          = "Show off the goat, if it is yours"
 	DescSetup         = "Start the game (admin)"
 	DescSetupMember   = "Who starts with the goat (default: you)"
 	DescReset         = "Restart the game on a new holder (admin)"
