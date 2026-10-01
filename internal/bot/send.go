@@ -47,6 +47,37 @@ func relTime(t time.Time) string {
 	return "<t:" + strconv.FormatInt(t.Unix(), 10) + ":R>"
 }
 
+func heldFor(since time.Time) string {
+	if since.IsZero() {
+		return ""
+	}
+	d := time.Since(since)
+	switch {
+	case d < time.Minute:
+		return "mere moments"
+	case d < time.Hour:
+		return countOf(int(d.Minutes()), "minute")
+	case d < 24*time.Hour:
+		return countOf(int(d.Hours()), "hour")
+	default:
+		return countOf(int(d.Hours()/24), "day")
+	}
+}
+
+func countOf(n int, unit string) string {
+	if n == 1 {
+		return "1 " + unit
+	}
+	return strconv.Itoa(n) + " " + unit + "s"
+}
+
+func dateTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return "<t:" + strconv.FormatInt(t.Unix(), 10) + ":f>"
+}
+
 func clockTime(t time.Time) string {
 	if t.IsZero() {
 		return ""

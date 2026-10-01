@@ -23,6 +23,7 @@ func withTestCopy(t *testing.T) {
 		&EscapedUnheldMsg:    "ESCAPED_UNHELD loser={{.Loser}}",
 		&ResetMsg:            "RESET {{.Holder}}",
 		&RoleFailedMsg:       "ROLE_FAILED winner={{.Winner}} holder={{.Holder}}",
+		&SlippedAwayMsg:      "SLIPPED_AWAY loser={{.Loser}} count={{.Count}}",
 	}
 
 	saved := make(map[**template.Template]*template.Template, len(slots))
@@ -47,6 +48,10 @@ func newTestGame(t *testing.T, s *State, members ...string) (*Game, *fakeDiscord
 	store := &memStore{}
 	game := NewGame(Config{GuildID: "g", StatePath: "mem"}, fake, store, s, rand.New(rand.NewPCG(1, 2)))
 	return game, fake, store
+}
+
+func alwaysPicks(g *Game, i int) {
+	g.pick = func(int) int { return i }
 }
 
 func baseState() *State {
@@ -100,6 +105,7 @@ func TestSingleChallengerWins(t *testing.T) {
 	s := baseState()
 	s.Challengers = []string{"bob"}
 	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	alwaysPicks(game, 0)
 
 	game.resolve()
 
@@ -211,20 +217,21 @@ func TestLotteryIsFair(t *testing.T) {
 		wins[s.HolderID]++
 	}
 
-	want := rounds / len(entrants)
+	slots := len(entrants) + 1
+	want := rounds / slots
 	tolerance := want / 5
-	for _, e := range entrants {
+	for _, e := range append(append([]string(nil), entrants...), "") {
 		got := wins[e]
 		if got == 0 {
-			t.Errorf("%s never won in %d rounds", e, rounds)
+			t.Errorf("%q never won in %d rounds", e, rounds)
 			continue
 		}
 		if got < want-tolerance || got > want+tolerance {
-			t.Errorf("%s won %d of %d, want roughly %d", e, got, rounds, want)
+			t.Errorf("%q won %d of %d, want roughly %d", e, got, rounds, want)
 		}
 	}
-	if len(wins) != len(entrants) {
-		t.Errorf("winners = %v, want exactly the entrants", wins)
+	if len(wins) != slots {
+		t.Errorf("winners = %v, want the entrants plus nobody", wins)
 	}
 }
 
@@ -261,6 +268,7 @@ func TestHolderLeftAndRecovered(t *testing.T) {
 	s := baseState()
 	s.Challengers = []string{"bob"}
 	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	alwaysPicks(game, 0)
 	fake.leave("alice")
 
 	game.resolve()
@@ -311,8 +319,8 @@ func TestDepartedChallengerIsPruned(t *testing.T) {
 		s.Challengers = []string{"ghost", "bob"}
 
 		game.resolve()
-		if s.HolderID != "bob" {
-			t.Fatalf("round %d: holder = %q, want bob; a departed member won", i, s.HolderID)
+		if s.HolderID == "ghost" {
+			t.Fatalf("round %d: a departed member won", i)
 		}
 	}
 }
@@ -340,7 +348,7 @@ func TestSetupRefusesWhenRunning(t *testing.T) {
 	s := baseState()
 	game, fake, _ := newTestGame(t, s, "alice", "bob")
 
-	if _, err := game.setup("bob", "chan"); err != ErrRunning {
+	if _, err := game.setup("chan"); err != ErrRunning {
 		t.Fatalf("setup err = %v, want ErrRunning", err)
 	}
 	if s.HolderID != "alice" {
@@ -378,5 +386,110 @@ func TestMissedRoundResolvesOnceOnRestart(t *testing.T) {
 	game.maybeResolve()
 	if s.TotalTransfers != 1 {
 		t.Errorf("a second tick inside the round changed transfers to %d", s.TotalTransfers)
+	}
+}
+
+func TestGoatSlipsAwayFromEverybody(t *testing.T) {
+	s := baseState()
+	s.Challengers = []string{"bob", "carol"}
+	game, fake, _ := newTestGame(t, s, "alice", "bob", "carol")
+	alwaysPicks(game, 2)
+
+	game.resolve()
+
+	if s.HolderID != "" {
+		t.Fatalf("holder = %q, want nobody", s.HolderID)
+	}
+	if s.UnheldSince.IsZero() {
+		t.Error("UnheldSince was not stamped")
+	}
+	if s.TotalTransfers != 0 {
+		t.Errorf("transfers = %d, want 0; nobody became a keeper", s.TotalTransfers)
+	}
+	if got := fake.holdersOf("role-goat"); len(got) != 0 {
+		t.Errorf("goat role held by %v, want nobody", got)
+	}
+	if len(s.History) != 1 || s.History[0].UserID != "alice" {
+		t.Fatalf("history = %+v, want one reign for alice", s.History)
+	}
+	if got := lastSent(fake); !strings.HasPrefix(got, "SLIPPED_AWAY") {
+		t.Errorf("announced %q, want the slipped-away message", got)
+	}
+	for _, m := range fake.sent {
+		if strings.HasPrefix(m, "STOLEN") {
+			t.Error("a theft was announced when nobody took the goat")
+		}
+	}
+}
+
+func TestUnheldSinceSurvivesFurtherRounds(t *testing.T) {
+	s := baseState()
+	s.Challengers = []string{"bob"}
+	game, _, _ := newTestGame(t, s, "alice", "bob")
+	alwaysPicks(game, 1)
+
+	game.resolve()
+	first := s.UnheldSince
+	if first.IsZero() {
+		t.Fatal("UnheldSince was not stamped")
+	}
+
+	s.Challengers = []string{"bob"}
+	s.RoundEndsAt = time.Now().Add(-time.Second)
+	game.resolve()
+
+	if !s.UnheldSince.Equal(first) {
+		t.Errorf("UnheldSince = %v, want it unchanged at %v", s.UnheldSince, first)
+	}
+}
+
+func TestSetupLeavesTheGoatUnheld(t *testing.T) {
+	s := baseState()
+	s.HolderID = ""
+	s.HolderSince = time.Time{}
+	s.RoundEndsAt = time.Time{}
+	game, fake, _ := newTestGame(t, s, "alice")
+
+	if _, err := game.setup("chan"); err != nil {
+		t.Fatalf("setup err = %v", err)
+	}
+	if s.HolderID != "" {
+		t.Errorf("holder = %q, want nobody", s.HolderID)
+	}
+	if s.UnheldSince.IsZero() {
+		t.Error("UnheldSince was not stamped")
+	}
+	if !s.started() {
+		t.Error("round did not start")
+	}
+	if fake.addCalls != 0 {
+		t.Errorf("role add calls = %d, want none; setup assigns nobody", fake.addCalls)
+	}
+	if got := lastSent(fake); !strings.HasPrefix(got, "CLAIMED") {
+		t.Errorf("announced %q, want the claimed message", got)
+	}
+}
+
+func TestResetLeavesTheGoatUnheld(t *testing.T) {
+	s := baseState()
+	game, fake, _ := newTestGame(t, s, "alice", "bob")
+
+	if _, err := game.reset("bob"); err != nil {
+		t.Fatalf("reset err = %v", err)
+	}
+	if s.HolderID != "" {
+		t.Errorf("holder = %q, want nobody", s.HolderID)
+	}
+	if s.UnheldSince.IsZero() {
+		t.Error("UnheldSince was not stamped")
+	}
+	if len(s.History) != 1 || s.History[0].UserID != "alice" {
+		t.Fatalf("history = %+v, want alice's reign recorded", s.History)
+	}
+	if got := fake.holdersOf("role-goat"); len(got) != 0 {
+		t.Errorf("goat role held by %v, want nobody", got)
+	}
+	if got := lastSent(fake); !strings.HasPrefix(got, "RESET") {
+		t.Errorf("announced %q, want the reset message", got)
 	}
 }

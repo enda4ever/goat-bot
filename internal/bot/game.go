@@ -22,13 +22,14 @@ type Game struct {
 	dg    Discord
 	store Store
 	rng   *rand.Rand
+	pick  func(int) int
 	s     *State
 
 	reqs chan func()
 }
 
 func NewGame(cfg Config, dg Discord, store Store, s *State, rng *rand.Rand) *Game {
-	return &Game{
+	g := &Game{
 		cfg:   cfg,
 		dg:    dg,
 		store: store,
@@ -36,6 +37,8 @@ func NewGame(cfg Config, dg Discord, store Store, s *State, rng *rand.Rand) *Gam
 		s:     s,
 		reqs:  make(chan func()),
 	}
+	g.pick = g.rng.IntN
+	return g
 }
 
 func (g *Game) Run(stop <-chan struct{}) {
@@ -70,13 +73,13 @@ func (g *Game) Steal(userID string) (data MsgData, err error) {
 	return data, err
 }
 
-func (g *Game) Setup(targetID, fallbackChannel string) (data MsgData, err error) {
-	g.do(func() { data, err = g.setup(targetID, fallbackChannel) })
+func (g *Game) Setup(fallbackChannel string) (data MsgData, err error) {
+	g.do(func() { data, err = g.setup(fallbackChannel) })
 	return data, err
 }
 
-func (g *Game) Reset(targetID, actorID string) (data MsgData, err error) {
-	g.do(func() { data, err = g.reset(targetID, actorID) })
+func (g *Game) Reset(actorID string) (data MsgData, err error) {
+	g.do(func() { data, err = g.reset(actorID) })
 	return data, err
 }
 
@@ -101,9 +104,9 @@ func (g *Game) StatusData() (started, unheld bool, data MsgData) {
 	return started, unheld, data
 }
 
-func (g *Game) HistoryData() (reigns []Reign, total int) {
-	g.do(func() { reigns, total = g.historyData() })
-	return reigns, total
+func (g *Game) HistoryData() (reigns []Reign, total, escapes int) {
+	g.do(func() { reigns, total, escapes = g.historyData() })
+	return reigns, total, escapes
 }
 
 func (g *Game) EnsureRoleAtStartup() {
@@ -163,7 +166,12 @@ func (g *Game) resolve() {
 		return
 	}
 
-	winner := live[g.rng.IntN(len(live))]
+	draw := g.pick(len(live) + 1)
+	if draw == len(live) {
+		g.slipAway(now, live, escaped, prevHolder)
+		return
+	}
+	winner := live[draw]
 
 	if err := g.dg.GuildMemberRoleAdd(g.cfg.GuildID, winner, g.s.GoatRoleID); err != nil {
 		log.Printf("discord: could not give the goat role: %v", err)
@@ -189,6 +197,7 @@ func (g *Game) resolve() {
 	g.s.HolderID = winner
 	g.s.HolderSince = now
 	g.s.HolderStreak = 0
+	g.s.UnheldSince = time.Time{}
 
 	challengers := live
 	g.startRound(now)
@@ -211,8 +220,43 @@ func (g *Game) resolve() {
 	g.announce(StolenMsg, data)
 }
 
+func (g *Game) slipAway(now time.Time, live []string, escaped bool, prevHolder string) {
+	loser := g.s.HolderID
+	if loser != "" {
+		if err := g.dg.GuildMemberRoleRemove(g.cfg.GuildID, loser, g.s.GoatRoleID); err != nil {
+			log.Printf("discord: could not take the goat role as it slipped away: %v", err)
+		}
+		g.s.recordReign(now)
+	}
+	g.s.TotalEscapes++
+	if g.s.UnheldSince.IsZero() {
+		g.s.UnheldSince = now
+	}
+	g.startRound(now)
+	g.save()
+
+	data := MsgData{
+		Challengers: mentionList(live),
+		Count:       len(live),
+		Free:        heldFor(g.s.UnheldSince),
+		Deadline:    relTime(g.s.RoundEndsAt),
+		DeadlineAt:  clockTime(g.s.RoundEndsAt),
+		Total:       g.s.TotalTransfers,
+	}
+	if escaped {
+		data.Loser = mention(prevHolder)
+	} else {
+		data.Loser = mention(loser)
+	}
+	g.announce(SlippedAwayMsg, data)
+}
+
 func (g *Game) resolveUncontested(now time.Time, escaped bool, prevHolder string) {
 	if escaped {
+		g.s.TotalEscapes++
+		if g.s.UnheldSince.IsZero() {
+			g.s.UnheldSince = now
+		}
 		g.startRound(now)
 		g.save()
 		g.announce(EscapedUnheldMsg, MsgData{
@@ -236,6 +280,7 @@ func (g *Game) resolveUncontested(now time.Time, escaped bool, prevHolder string
 		Holder:     mention(g.s.HolderID),
 		Streak:     g.s.HolderStreak,
 		HeldSince:  relTime(g.s.HolderSince),
+		Held:       heldFor(g.s.HolderSince),
 		Deadline:   relTime(g.s.RoundEndsAt),
 		DeadlineAt: clockTime(g.s.RoundEndsAt),
 	})
@@ -270,9 +315,14 @@ func (g *Game) steal(userID string) (MsgData, error) {
 	return data, nil
 }
 
-func (g *Game) setup(targetID, fallbackChannel string) (MsgData, error) {
-	if g.s.HolderID != "" {
-		return MsgData{Holder: mention(g.s.HolderID)}, ErrRunning
+func (g *Game) setup(fallbackChannel string) (MsgData, error) {
+	if g.s.started() {
+		return MsgData{
+			Holder:     mention(g.s.HolderID),
+			Minutes:    g.s.RoundMinutes,
+			Deadline:   relTime(g.s.RoundEndsAt),
+			DeadlineAt: clockTime(g.s.RoundEndsAt),
+		}, ErrRunning
 	}
 	if g.s.AnnounceChannel == "" {
 		g.s.AnnounceChannel = fallbackChannel
@@ -280,20 +330,15 @@ func (g *Game) setup(targetID, fallbackChannel string) (MsgData, error) {
 	if err := g.ensureRole(); err != nil {
 		return MsgData{Reason: err.Error()}, err
 	}
-	if err := g.dg.GuildMemberRoleAdd(g.cfg.GuildID, targetID, g.s.GoatRoleID); err != nil {
-		return MsgData{Reason: err.Error()}, err
-	}
 
 	now := time.Now()
-	g.s.HolderID = targetID
-	g.s.HolderSince = now
-	g.s.HolderStreak = 0
+	g.s.UnheldSince = now
 	g.startRound(now)
 	g.save()
 
 	data := MsgData{
-		Holder:     mention(targetID),
 		Minutes:    g.s.RoundMinutes,
+		Free:       heldFor(g.s.UnheldSince),
 		Deadline:   relTime(g.s.RoundEndsAt),
 		DeadlineAt: clockTime(g.s.RoundEndsAt),
 	}
@@ -301,30 +346,26 @@ func (g *Game) setup(targetID, fallbackChannel string) (MsgData, error) {
 	return data, nil
 }
 
-func (g *Game) reset(targetID, actorID string) (MsgData, error) {
+func (g *Game) reset(actorID string) (MsgData, error) {
 	if err := g.ensureRole(); err != nil {
-		return MsgData{Reason: err.Error()}, err
-	}
-	if err := g.dg.GuildMemberRoleAdd(g.cfg.GuildID, targetID, g.s.GoatRoleID); err != nil {
 		return MsgData{Reason: err.Error()}, err
 	}
 
 	now := time.Now()
-	if g.s.HolderID != "" && g.s.HolderID != targetID {
+	if g.s.HolderID != "" {
 		if err := g.dg.GuildMemberRoleRemove(g.cfg.GuildID, g.s.HolderID, g.s.GoatRoleID); err != nil {
 			log.Printf("discord: could not take the goat role during reset: %v", err)
 		}
 	}
 	g.s.recordReign(now)
-	g.s.HolderID = targetID
-	g.s.HolderSince = now
-	g.s.HolderStreak = 0
+	g.s.UnheldSince = now
 	g.startRound(now)
 	g.save()
 
 	data := MsgData{
-		Holder:     mention(targetID),
 		Actor:      mention(actorID),
+		Minutes:    g.s.RoundMinutes,
+		Free:       heldFor(g.s.UnheldSince),
 		Deadline:   relTime(g.s.RoundEndsAt),
 		DeadlineAt: clockTime(g.s.RoundEndsAt),
 	}
@@ -362,19 +403,21 @@ func (g *Game) statusData() (started, unheld bool, data MsgData) {
 		Streak:     g.s.HolderStreak,
 		Count:      len(g.s.Challengers),
 		HeldSince:  relTime(g.s.HolderSince),
+		Held:       heldFor(g.s.HolderSince),
+		Free:       heldFor(g.s.UnheldSince),
 		Deadline:   relTime(g.s.RoundEndsAt),
 		DeadlineAt: clockTime(g.s.RoundEndsAt),
 		Total:      g.s.TotalTransfers,
 	}
 }
 
-func (g *Game) historyData() ([]Reign, int) {
+func (g *Game) historyData() ([]Reign, int, int) {
 	n := len(g.s.History)
 	from := 0
 	if n > historyShown {
 		from = n - historyShown
 	}
-	return append([]Reign(nil), g.s.History[from:]...), g.s.TotalTransfers
+	return append([]Reign(nil), g.s.History[from:]...), g.s.TotalTransfers, g.s.TotalEscapes
 }
 
 func (g *Game) ensureRole() error {

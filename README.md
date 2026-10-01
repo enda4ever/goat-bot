@@ -2,7 +2,7 @@
 ##### a discord bot, customly made, about goat theft
 
 #### THE IDEA:
-Admin will select the first goat holder (role). But fear not! All members of the server will have the opportunity to steal the goat for themselves, once per hour. One of the thieves will be randomly selected to become the next 'goat holder' and so forth.
+Admin sets the goat loose, belonging to nobody. All members of the server then have the opportunity to steal it for themselves, once per hour. One of the thieves is randomly selected to become the next 'goat holder' and so forth, though the goat may also slip every hand and wander free again.
 
 -----
 
@@ -51,8 +51,8 @@ If you testing manually in a discord server, `/goat config minutes:2` makes the 
 /goat status                        everyone    who has it, how long is left
 /goat history                       everyone    recent holders
 /goat show                          everyone    the goat, if it's yours
-/goat setup [member]                admin       start the game
-/goat reset [member]                admin       start over on a new holder
+/goat setup                         admin       set the goat loose
+/goat reset                         admin       wipe the slate, set it loose again
 /goat resolve                       admin       end this round right now
 /goat config [channel] [minutes]    admin       channel and round length
 ```

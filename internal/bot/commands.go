@@ -38,27 +38,11 @@ func CommandDefs() []*discordgo.ApplicationCommand {
 					Name:        "setup",
 					Description: DescSetup,
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Name:        "member",
-							Description: DescSetupMember,
-							Type:        discordgo.ApplicationCommandOptionUser,
-							Required:    false,
-						},
-					},
 				},
 				{
 					Name:        "reset",
 					Description: DescReset,
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Name:        "member",
-							Description: DescResetMember,
-							Type:        discordgo.ApplicationCommandOptionUser,
-							Required:    false,
-						},
-					},
 				},
 				{
 					Name:        "resolve",
@@ -146,8 +130,6 @@ func (h handler) steal(i *discordgo.InteractionCreate) string {
 		return render(YouHoldItMsg, data)
 	case errors.Is(err, ErrAlreadyEntry):
 		return render(AlreadyEnteredMsg, data)
-	case err != nil:
-		return render(RoleMissingMsg, MsgData{Reason: err.Error()})
 	default:
 		return render(EnteredMsg, data)
 	}
@@ -172,8 +154,7 @@ func (h handler) goat(i *discordgo.InteractionCreate, sub string, data discordgo
 	opts := subOptions(data)
 	switch sub {
 	case "setup":
-		target := userOption(i, opts, "member", callerID(i))
-		out, err := h.game.Setup(target, i.ChannelID)
+		out, err := h.game.Setup(i.ChannelID)
 		switch {
 		case errors.Is(err, ErrRunning):
 			return render(AlreadyRunningMsg, out)
@@ -182,8 +163,7 @@ func (h handler) goat(i *discordgo.InteractionCreate, sub string, data discordgo
 		}
 		return render(ClaimedMsg, out)
 	case "reset":
-		target := userOption(i, opts, "member", callerID(i))
-		out, err := h.game.Reset(target, callerID(i))
+		out, err := h.game.Reset(callerID(i))
 		if err != nil {
 			return render(RoleMissingMsg, out)
 		}
@@ -238,9 +218,9 @@ func (h handler) show(i *discordgo.InteractionCreate) string {
 }
 
 func (h handler) history() string {
-	reigns, total := h.game.HistoryData()
+	reigns, total, escapes := h.game.HistoryData()
 	if len(reigns) == 0 {
-		return render(HistoryEmptyMsg, MsgData{Total: total})
+		return render(HistoryEmptyMsg, MsgData{Total: total, Escapes: escapes})
 	}
 
 	lines := make([]string, 0, len(reigns))
@@ -248,7 +228,7 @@ func (h handler) history() string {
 		r := reigns[n]
 		line := render(HistoryLineMsg, MsgData{
 			User:   mention(r.UserID),
-			From:   clockTime(r.From),
+			From:   dateTime(r.From),
 			To:     clockTime(r.To),
 			Streak: r.Streak,
 		})
@@ -256,7 +236,7 @@ func (h handler) history() string {
 			lines = append(lines, line)
 		}
 	}
-	return render(HistoryHeaderMsg, MsgData{Lines: strings.Join(lines, "\n"), Total: total})
+	return render(HistoryHeaderMsg, MsgData{Lines: strings.Join(lines, "\n"), Total: total, Escapes: escapes})
 }
 
 func defer_(s *discordgo.Session, i *discordgo.InteractionCreate, public bool) error {
@@ -312,15 +292,4 @@ func option(opts []*discordgo.ApplicationCommandInteractionDataOption, name stri
 		}
 	}
 	return nil
-}
-
-func userOption(i *discordgo.InteractionCreate, opts []*discordgo.ApplicationCommandInteractionDataOption, name, fallback string) string {
-	o := option(opts, name)
-	if o == nil {
-		return fallback
-	}
-	if u := o.UserValue(nil); u != nil && u.ID != "" {
-		return u.ID
-	}
-	return fallback
 }

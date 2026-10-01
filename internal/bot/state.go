@@ -29,10 +29,12 @@ type State struct {
 	HolderID        string    `json:"holder_id"`
 	HolderSince     time.Time `json:"holder_since"`
 	HolderStreak    int       `json:"holder_streak"`
+	UnheldSince     time.Time `json:"unheld_since"`
 	RoundEndsAt     time.Time `json:"round_ends_at"`
 	Challengers     []string  `json:"challengers"`
 	History         []Reign   `json:"history"`
 	TotalTransfers  int       `json:"total_transfers"`
+	TotalEscapes    int       `json:"total_escapes"`
 }
 
 func (s *State) started() bool {
