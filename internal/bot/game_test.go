@@ -493,3 +493,19 @@ func TestResetLeavesTheGoatUnheld(t *testing.T) {
 		t.Errorf("announced %q, want the reset message", got)
 	}
 }
+
+func TestDepartedHolderIsNotCountedAsATheft(t *testing.T) {
+	s := baseState()
+	game, _, _ := newTestGame(t, s, "alice")
+	fake := game.dg.(*fakeDiscord)
+	fake.leave("alice")
+
+	game.resolve()
+
+	if s.TotalTransfers != 0 {
+		t.Errorf("thefts = %d, want 0; nobody took the goat", s.TotalTransfers)
+	}
+	if s.TotalEscapes != 1 {
+		t.Errorf("escapes = %d, want 1", s.TotalEscapes)
+	}
+}

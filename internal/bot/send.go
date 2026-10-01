@@ -71,11 +71,11 @@ func countOf(n int, unit string) string {
 	return strconv.Itoa(n) + " " + unit + "s"
 }
 
-func dateTime(t time.Time) string {
+func dayStamp(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return "<t:" + strconv.FormatInt(t.Unix(), 10) + ":f>"
+	return "<t:" + strconv.FormatInt(t.Unix(), 10) + ":D>"
 }
 
 func clockTime(t time.Time) string {

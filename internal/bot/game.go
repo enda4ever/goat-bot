@@ -151,7 +151,6 @@ func (g *Game) resolve() {
 	escaped := prevHolder != "" && !g.memberPresent(prevHolder)
 	if escaped {
 		g.s.recordReign(now)
-		g.s.TotalTransfers++
 	}
 
 	var live []string

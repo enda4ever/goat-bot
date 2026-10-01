@@ -1,6 +1,6 @@
 # Privacy Policy for Goat Bot
 
-Last updated: 11 September 2026
+Last updated: 1 October 2026
 
 -----
 
@@ -12,7 +12,7 @@ A user ID is a public identifying number that Discord gives you when you sign up
 -----
 
 #### How long this data is stored:
-The last fifty times the goat changed hands, and no more.
+The reign records keep the last fifty times the goat changed hands, and no more.
 
 The list of who tried to steal this hour is wiped at the end of every hour, win or lose.
 

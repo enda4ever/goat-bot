@@ -224,11 +224,21 @@ func (h handler) history() string {
 	}
 
 	lines := make([]string, 0, len(reigns))
+	day := ""
 	for n := len(reigns) - 1; n >= 0; n-- {
 		r := reigns[n]
+		if d := r.From.Format("2006-01-02"); d != day {
+			day = d
+			if heading := render(HistoryDayMsg, MsgData{From: dayStamp(r.From)}); heading != "" {
+				if len(lines) > 0 {
+					lines = append(lines, "")
+				}
+				lines = append(lines, heading)
+			}
+		}
 		line := render(HistoryLineMsg, MsgData{
 			User:   mention(r.UserID),
-			From:   dateTime(r.From),
+			From:   clockTime(r.From),
 			To:     clockTime(r.To),
 			Streak: r.Streak,
 		})
