@@ -86,7 +86,7 @@ var ClaimedMsg = msg("claimed", "```"+`
  ༺───────────────────༻
 `+"```"+`
 The goat has been set loose upon the Kingdom. Perhaps it will find its rightful home. Or perhaps it will be stolen!
-Every {{.Minutes}} minutes, the goat becomes restless and unruly. If you attempted a `+"`"+`/goat steal`+"`"+` action before then, you may be declared as the reigning Goat Thief! At {{.DeadlineAt}} we shall see who was the most cunning, who was clumsy, and who was gracious.`)
+Every {{.Minutes}} minutes, the goat becomes restless and unruly. If you attempted a `+"`"+`/goat steal`+"`"+` action before then, you may be declared as the reigning goat keeper! At {{.DeadlineAt}} we shall see who was the most cunning, who was clumsy, and who was gracious.`)
 
 // Sent at the end of a round in which nobody entered. The holder keeps it.
 // Fields: .Holder .Streak .Deadline .DeadlineAt .HeldSince .Held
@@ -266,7 +266,7 @@ var RoleFailedMsg = msg("role_failed", "```"+`
 `+"```"+`
 To much surprise, no thieving has taken place, despite many attempts. {{if .Holder}}{{.Holder}} keeps the goat, merely by happenstance.{{else}}The goat remains unclaimed, merely by happenstance.{{end}}
 Only the wisest in the Kingdom can decipher this strange and concerning message: {{.Reason}}.
-Heed it, wise ones: the bot's own role must sit above the goat thief role in Server Settings. Drag it higher, then run /goat resolve to settle this round properly.`)
+Heed it, wise ones: the bot's own role must sit above the goat keeper role in Server Settings. Drag it higher, then run /goat resolve to settle this round properly.`)
 
 // Ephemeral. An admin command ran but no announcement channel is configured.
 // Fields: .Channel .Minutes
@@ -275,7 +275,7 @@ var ChannelMissingMsg = msg("channel_missing", `Nowhere to announce it. Run /goa
 // Ephemeral. The goat role was deleted out from under the bot and could not be
 // recreated.
 // Fields: .Reason
-var RoleMissingMsg = msg("role_missing", `The goat thief role has vanished from the server! The goat bot could not recreate it, for reason: {{.Reason}}`)
+var RoleMissingMsg = msg("role_missing", `The goat keeper role has vanished from the server! The goat bot could not recreate it, for reason: {{.Reason}}`)
 
 // ---------------------------------------------------------------------------
 // COMMAND PICKER TEXT
