@@ -50,6 +50,11 @@ func CommandDefs() []*discordgo.ApplicationCommand {
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 				{
+					Name:        "clear-home",
+					Description: DescClearHome,
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+				{
 					Name:        "config",
 					Description: DescConfig,
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -68,6 +73,12 @@ func CommandDefs() []*discordgo.ApplicationCommand {
 							Description: DescConfigMinutes,
 							Type:        discordgo.ApplicationCommandOptionInteger,
 							MinValue:    ptr(1.0),
+							Required:    false,
+						},
+						{
+							Name:        "home",
+							Description: DescConfigHome,
+							Type:        discordgo.ApplicationCommandOptionUser,
 							Required:    false,
 						},
 					},
@@ -173,6 +184,8 @@ func (h handler) goat(i *discordgo.InteractionCreate, sub string, data discordgo
 			return render(NoRoundMsg, MsgData{})
 		}
 		return h.status()
+	case "clear-home":
+		return render(ConfigDoneMsg, h.game.ClearHome())
 	case "config":
 		channelID := ""
 		if o := option(opts, "channel"); o != nil {
@@ -182,7 +195,11 @@ func (h handler) goat(i *discordgo.InteractionCreate, sub string, data discordgo
 		if o := option(opts, "minutes"); o != nil {
 			minutes = int(o.IntValue())
 		}
-		out, err := h.game.Config(channelID, minutes)
+		homeID := ""
+		if o := option(opts, "home"); o != nil {
+			homeID = o.UserValue(nil).ID
+		}
+		out, err := h.game.Config(channelID, homeID, minutes)
 		if errors.Is(err, ErrNoChannel) {
 			return render(ChannelMissingMsg, out)
 		}
@@ -218,9 +235,9 @@ func (h handler) show(i *discordgo.InteractionCreate) string {
 }
 
 func (h handler) history() string {
-	reigns, total, escapes := h.game.HistoryData()
+	reigns, total, escapes, journeys := h.game.HistoryData()
 	if len(reigns) == 0 {
-		return render(HistoryEmptyMsg, MsgData{Total: total, Escapes: escapes})
+		return render(HistoryEmptyMsg, MsgData{Total: total, Escapes: escapes, JourneysHome: journeys})
 	}
 
 	lines := make([]string, 0, len(reigns))
@@ -246,7 +263,7 @@ func (h handler) history() string {
 			lines = append(lines, line)
 		}
 	}
-	return render(HistoryHeaderMsg, MsgData{Lines: strings.Join(lines, "\n"), Total: total, Escapes: escapes})
+	return render(HistoryHeaderMsg, MsgData{Lines: strings.Join(lines, "\n"), Total: total, Escapes: escapes, JourneysHome: journeys})
 }
 
 func defer_(s *discordgo.Session, i *discordgo.InteractionCreate, public bool) error {

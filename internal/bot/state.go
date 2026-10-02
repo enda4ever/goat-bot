@@ -23,18 +23,20 @@ type Reign struct {
 }
 
 type State struct {
-	GoatRoleID      string    `json:"goat_role_id"`
-	AnnounceChannel string    `json:"announce_channel"`
-	RoundMinutes    int       `json:"round_minutes"`
-	HolderID        string    `json:"holder_id"`
-	HolderSince     time.Time `json:"holder_since"`
-	HolderStreak    int       `json:"holder_streak"`
-	UnheldSince     time.Time `json:"unheld_since"`
-	RoundEndsAt     time.Time `json:"round_ends_at"`
-	Challengers     []string  `json:"challengers"`
-	History         []Reign   `json:"history"`
-	TotalTransfers  int       `json:"total_transfers"`
-	TotalEscapes    int       `json:"total_escapes"`
+	GoatRoleID        string    `json:"goat_role_id"`
+	AnnounceChannel   string    `json:"announce_channel"`
+	HomeID            string    `json:"home_id"`
+	RoundMinutes      int       `json:"round_minutes"`
+	HolderID          string    `json:"holder_id"`
+	HolderSince       time.Time `json:"holder_since"`
+	HolderStreak      int       `json:"holder_streak"`
+	UnheldSince       time.Time `json:"unheld_since"`
+	RoundEndsAt       time.Time `json:"round_ends_at"`
+	Challengers       []string  `json:"challengers"`
+	History           []Reign   `json:"history"`
+	TotalTransfers    int       `json:"total_transfers"`
+	TotalEscapes      int       `json:"total_escapes"`
+	TotalJourneysHome int       `json:"total_journeys_home"`
 }
 
 func (s *State) started() bool {

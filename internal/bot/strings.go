@@ -38,27 +38,28 @@ import "text/template"
 // be referenced from any slot, but only the ones documented on a slot are
 // filled in for it.
 type MsgData struct {
-	Holder      string
-	Winner      string
-	Loser       string
-	Actor       string
-	Challengers string
-	Count       int
-	Streak      int
-	Deadline    string
-	DeadlineAt  string
-	HeldSince   string
-	Held        string
-	Free        string
-	Total       int
-	Escapes     int
-	Minutes     int
-	Channel     string
-	Lines       string
-	User        string
-	From        string
-	To          string
-	Reason      string
+	Holder       string
+	Winner       string
+	Loser        string
+	Actor        string
+	Challengers  string
+	Count        int
+	Streak       int
+	Deadline     string
+	DeadlineAt   string
+	HeldSince    string
+	Held         string
+	Free         string
+	Total        int
+	Escapes      int
+	JourneysHome int
+	Minutes      int
+	Channel      string
+	Lines        string
+	User         string
+	From         string
+	To           string
+	Reason       string
 }
 
 func msg(name, body string) *template.Template {
@@ -143,6 +144,16 @@ var EscapedUnheldMsg = msg("escaped_unheld", "```"+`
 The goat's latest keeper has fled the Kingdom, and so it frolics freely. Will it find its rightful home at last?
 Surely no one will attempt to capture it before {{.DeadlineAt}}.`)
 
+// Sent when a whole round passed with the goat unheld and nobody reaching for
+// it, so it returns to the home an admin configured with /goat config home.
+// Fields: .Holder .Free .Deadline .DeadlineAt
+var HomeMsg = msg("home", "```"+`
+  ──────── ·𖤍· ────────
+    𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕘𝕠𝕖𝕤 𝕙𝕠𝕞𝕖
+ ༺───────────────────༻
+`+"```"+`
+At last! After {{.Free}} of wandering freely, the goat has found its proper home. {{.Holder}} keeps it now. Surely no one would even attempt to swipe it off them! 'Twould be of great dishonour...`)
+
 // Sent when an admin runs /goat reset: the streak is wiped and the goat is set
 // loose again, belonging to nobody.
 // Fields: .Actor .Minutes .Free .Deadline .DeadlineAt
@@ -203,13 +214,14 @@ var StatusUnheldMsg = msg("status_unheld", `The goat roams free! The beloved cre
 
 // /goat history. .Lines is every HistoryLineMsg below, newest first, joined
 // with newlines.
-// Fields: .Lines .Total .Escapes
+// Fields: .Lines .Total .Escapes .JourneysHome
 var HistoryHeaderMsg = msg("history_header", "```"+`
   ──────── ·𖤍· ────────
        𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕝𝕖𝕕𝕘𝕖𝕣
  ༺───────────────────༻
 `+"```"+`
-In the goat's lifetime, much has occurred; {{.Total}} {{if eq .Total 1}}thieving{{else}}thievings{{end}} and {{.Escapes}} successful {{if eq .Escapes 1}}escape{{else}}escapes{{end}}.
+In the goat's lifetime, much has occurred~
+{{.Total}} {{if eq .Total 1}}thieving{{else}}thievings{{end}}, {{.Escapes}} successful {{if eq .Escapes 1}}escape{{else}}escapes{{end}} and {{.JourneysHome}} {{if eq .JourneysHome 1}}journey{{else}}journeys{{end}} home.
 
 {{.Lines}}`)
 
@@ -224,7 +236,7 @@ var HistoryDayMsg = msg("history_day", `**{{.From}}**`)
 var HistoryLineMsg = msg("history_line", `- {{.User}} held the goat from {{.From}} until {{.To}}.`)
 
 // /goat history before anybody has lost the goat.
-// Fields: .Total .Escapes
+// Fields: .Total .Escapes .JourneysHome
 var HistoryEmptyMsg = msg("history_empty", `The goat has never changed hands. The ledger begins with the first successful theft.`)
 
 // /goat show by the current holder. Public.
@@ -295,7 +307,9 @@ var (
 	DescSetup         = "Set the goat loose and begin the game (admin)"
 	DescReset         = "Wipe the slate and set the goat loose again (admin)"
 	DescResolve       = "End the current round right now (admin)"
-	DescConfig        = "Set the announcement channel and round length (admin)"
+	DescConfig        = "Set the announcement channel, round length and the goat's home (admin)"
+	DescConfigHome    = "Who the goat returns to if nobody reaches for it"
+	DescClearHome     = "Stop the goat returning to anybody (admin)"
 	DescConfigChannel = "Where public announcements go"
 	DescConfigMinutes = "Round length in minutes, applied from the next round"
 )

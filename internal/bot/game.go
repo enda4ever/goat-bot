@@ -88,9 +88,14 @@ func (g *Game) ResolveNow() (err error) {
 	return err
 }
 
-func (g *Game) Config(channelID string, minutes int) (data MsgData, err error) {
-	g.do(func() { data, err = g.config(channelID, minutes) })
+func (g *Game) Config(channelID, homeID string, minutes int) (data MsgData, err error) {
+	g.do(func() { data, err = g.config(channelID, homeID, minutes) })
 	return data, err
+}
+
+func (g *Game) ClearHome() (data MsgData) {
+	g.do(func() { data = g.clearHome() })
+	return data
 }
 
 func (g *Game) IsHolder(userID string) bool {
@@ -104,9 +109,9 @@ func (g *Game) StatusData() (started, unheld bool, data MsgData) {
 	return started, unheld, data
 }
 
-func (g *Game) HistoryData() (reigns []Reign, total, escapes int) {
-	g.do(func() { reigns, total, escapes = g.historyData() })
-	return reigns, total, escapes
+func (g *Game) HistoryData() (reigns []Reign, total, escapes, journeys int) {
+	g.do(func() { reigns, total, escapes, journeys = g.historyData() })
+	return reigns, total, escapes, journeys
 }
 
 func (g *Game) EnsureRoleAtStartup() {
@@ -250,6 +255,37 @@ func (g *Game) slipAway(now time.Time, live []string, escaped bool, prevHolder s
 	g.announce(SlippedAwayMsg, data)
 }
 
+func (g *Game) goHome(now time.Time) bool {
+	if g.s.HomeID == "" || !g.memberPresent(g.s.HomeID) {
+		return false
+	}
+	if g.s.UnheldSince.IsZero() {
+		g.s.UnheldSince = now
+	}
+	free := heldFor(g.s.UnheldSince)
+
+	if err := g.dg.GuildMemberRoleAdd(g.cfg.GuildID, g.s.HomeID, g.s.GoatRoleID); err != nil {
+		log.Printf("discord: could not send the goat home: %v", err)
+		return false
+	}
+
+	g.s.HolderID = g.s.HomeID
+	g.s.HolderSince = now
+	g.s.HolderStreak = 0
+	g.s.UnheldSince = time.Time{}
+	g.s.TotalJourneysHome++
+	g.startRound(now)
+	g.save()
+
+	g.announce(HomeMsg, MsgData{
+		Holder:     mention(g.s.HolderID),
+		Free:       free,
+		Deadline:   relTime(g.s.RoundEndsAt),
+		DeadlineAt: clockTime(g.s.RoundEndsAt),
+	})
+	return true
+}
+
 func (g *Game) resolveUncontested(now time.Time, escaped bool, prevHolder string) {
 	if escaped {
 		g.s.TotalEscapes++
@@ -267,6 +303,9 @@ func (g *Game) resolveUncontested(now time.Time, escaped bool, prevHolder string
 	}
 
 	if g.s.HolderID == "" {
+		if g.goHome(now) {
+			return
+		}
 		g.startRound(now)
 		g.save()
 		return
@@ -380,9 +419,12 @@ func (g *Game) resolveNow() error {
 	return nil
 }
 
-func (g *Game) config(channelID string, minutes int) (MsgData, error) {
+func (g *Game) config(channelID, homeID string, minutes int) (MsgData, error) {
 	if channelID != "" {
 		g.s.AnnounceChannel = channelID
+	}
+	if homeID != "" {
+		g.s.HomeID = homeID
 	}
 	if minutes > 0 {
 		g.s.RoundMinutes = minutes
@@ -394,6 +436,12 @@ func (g *Game) config(channelID string, minutes int) (MsgData, error) {
 		return data, ErrNoChannel
 	}
 	return data, nil
+}
+
+func (g *Game) clearHome() MsgData {
+	g.s.HomeID = ""
+	g.save()
+	return MsgData{Channel: channelRef(g.s.AnnounceChannel), Minutes: g.s.RoundMinutes}
 }
 
 func (g *Game) statusData() (started, unheld bool, data MsgData) {
@@ -410,13 +458,13 @@ func (g *Game) statusData() (started, unheld bool, data MsgData) {
 	}
 }
 
-func (g *Game) historyData() ([]Reign, int, int) {
+func (g *Game) historyData() ([]Reign, int, int, int) {
 	n := len(g.s.History)
 	from := 0
 	if n > historyShown {
 		from = n - historyShown
 	}
-	return append([]Reign(nil), g.s.History[from:]...), g.s.TotalTransfers, g.s.TotalEscapes
+	return append([]Reign(nil), g.s.History[from:]...), g.s.TotalTransfers, g.s.TotalEscapes, g.s.TotalJourneysHome
 }
 
 func (g *Game) ensureRole() error {

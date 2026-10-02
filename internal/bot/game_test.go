@@ -24,6 +24,7 @@ func withTestCopy(t *testing.T) {
 		&ResetMsg:            "RESET {{.Holder}}",
 		&RoleFailedMsg:       "ROLE_FAILED winner={{.Winner}} holder={{.Holder}}",
 		&SlippedAwayMsg:      "SLIPPED_AWAY loser={{.Loser}} count={{.Count}}",
+		&HomeMsg:             "HOME holder={{.Holder}} free={{.Free}}",
 	}
 
 	saved := make(map[**template.Template]*template.Template, len(slots))
@@ -331,7 +332,7 @@ func TestDurationChangeAppliesToNextRound(t *testing.T) {
 	s.RoundEndsAt = deadline
 	game, _, _ := newTestGame(t, s, "alice")
 
-	if _, err := game.config("", 2); err != nil {
+	if _, err := game.config("", "", 2); err != nil {
 		t.Fatalf("config: %v", err)
 	}
 	if !s.RoundEndsAt.Equal(deadline) {
@@ -507,5 +508,165 @@ func TestDepartedHolderIsNotCountedAsATheft(t *testing.T) {
 	}
 	if s.TotalEscapes != 1 {
 		t.Errorf("escapes = %d, want 1", s.TotalEscapes)
+	}
+}
+
+func unheldState() *State {
+	s := baseState()
+	s.HolderID = ""
+	s.HolderSince = time.Time{}
+	s.UnheldSince = time.Now().Add(-2 * time.Hour)
+	return s
+}
+
+func TestGoatGoesHomeAfterAFreeRound(t *testing.T) {
+	s := unheldState()
+	s.HomeID = "home"
+	game, fake, _ := newTestGame(t, s, "home")
+
+	game.resolve()
+
+	if s.HolderID != "home" {
+		t.Fatalf("holder = %q, want home", s.HolderID)
+	}
+	if s.TotalJourneysHome != 1 {
+		t.Errorf("journeys home = %d, want 1", s.TotalJourneysHome)
+	}
+	if s.TotalTransfers != 0 || s.TotalEscapes != 0 {
+		t.Errorf("transfers = %d, escapes = %d, want both 0", s.TotalTransfers, s.TotalEscapes)
+	}
+	if !s.UnheldSince.IsZero() {
+		t.Error("UnheldSince should be cleared once the goat is held")
+	}
+	if got := fake.holdersOf("role-goat"); len(got) != 1 || got[0] != "home" {
+		t.Errorf("goat role held by %v, want [home]", got)
+	}
+	if got := lastSent(fake); !strings.HasPrefix(got, "HOME") {
+		t.Errorf("announced %q, want the home message", got)
+	}
+}
+
+func TestGoatStaysFreeWithNoHomeConfigured(t *testing.T) {
+	s := unheldState()
+	game, fake, store := newTestGame(t, s, "alice")
+	ends := s.RoundEndsAt
+
+	game.resolve()
+
+	if s.HolderID != "" {
+		t.Errorf("holder = %q, want nobody", s.HolderID)
+	}
+	if len(fake.sent) != 0 {
+		t.Errorf("announced %v, want silence", fake.sent)
+	}
+	if !s.RoundEndsAt.After(ends) {
+		t.Error("round did not advance")
+	}
+	if store.saves == 0 {
+		t.Error("state was not saved")
+	}
+	if s.TotalJourneysHome != 0 || s.TotalEscapes != 0 {
+		t.Error("counters should be untouched")
+	}
+}
+
+func TestGoatStaysFreeWhenHomeHasLeft(t *testing.T) {
+	s := unheldState()
+	s.HomeID = "ghost"
+	game, fake, _ := newTestGame(t, s, "alice")
+
+	game.resolve()
+
+	if s.HolderID != "" {
+		t.Errorf("holder = %q, want nobody", s.HolderID)
+	}
+	if s.TotalJourneysHome != 0 {
+		t.Errorf("journeys home = %d, want 0", s.TotalJourneysHome)
+	}
+	if len(fake.sent) != 0 {
+		t.Errorf("announced %v, want silence", fake.sent)
+	}
+}
+
+func TestGoatStaysFreeWhenRoleAddFails(t *testing.T) {
+	s := unheldState()
+	s.HomeID = "home"
+	game, fake, _ := newTestGame(t, s, "home")
+	fake.failRoleAdd = errForced
+
+	game.resolve()
+
+	if s.HolderID != "" {
+		t.Errorf("holder = %q, want nobody", s.HolderID)
+	}
+	if s.TotalJourneysHome != 0 {
+		t.Errorf("journeys home = %d, want 0", s.TotalJourneysHome)
+	}
+	if fake.addCalls != 1 {
+		t.Errorf("role add calls = %d, want 1", fake.addCalls)
+	}
+	if len(fake.sent) != 0 {
+		t.Errorf("announced %v, want silence", fake.sent)
+	}
+}
+
+func TestOneStealAttemptPreventsHomecoming(t *testing.T) {
+	s := unheldState()
+	s.HomeID = "home"
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "home", "bob")
+	alwaysPicks(game, 0)
+
+	game.resolve()
+
+	if s.HolderID != "bob" {
+		t.Fatalf("holder = %q, want bob", s.HolderID)
+	}
+	if s.TotalJourneysHome != 0 {
+		t.Errorf("journeys home = %d, want 0", s.TotalJourneysHome)
+	}
+	if got := lastSent(fake); !strings.HasPrefix(got, "STOLEN") {
+		t.Errorf("announced %q, want the stolen message", got)
+	}
+}
+
+func TestHomeKeeperCanBeStolenFrom(t *testing.T) {
+	s := baseState()
+	s.HolderID = "home"
+	s.HomeID = "home"
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "home", "bob")
+	alwaysPicks(game, 0)
+
+	game.resolve()
+
+	if s.HolderID != "bob" {
+		t.Fatalf("holder = %q, want bob", s.HolderID)
+	}
+	if len(s.History) != 1 || s.History[0].UserID != "home" {
+		t.Fatalf("history = %+v, want the home's reign recorded", s.History)
+	}
+	if got := lastSent(fake); !strings.HasPrefix(got, "STOLEN") {
+		t.Errorf("announced %q, want the stolen message", got)
+	}
+}
+
+func TestClearHomeRemovesTheStoredID(t *testing.T) {
+	s := unheldState()
+	s.HomeID = "home"
+	game, fake, _ := newTestGame(t, s, "home")
+
+	game.clearHome()
+	if s.HomeID != "" {
+		t.Fatalf("HomeID = %q, want empty", s.HomeID)
+	}
+
+	game.resolve()
+
+	if s.HolderID != "" {
+		t.Errorf("holder = %q, want nobody; the home was cleared", s.HolderID)
+	}
+	if len(fake.sent) != 0 {
+		t.Errorf("announced %v, want silence", fake.sent)
 	}
 }

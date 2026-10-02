@@ -2,12 +2,14 @@
 ##### a discord bot, customly made, about goat theft
 
 #### THE IDEA:
-Admin sets the goat loose, belonging to nobody. All members of the server then have the opportunity to steal it for themselves, once per hour. One of the thieves is randomly selected to become the next 'goat holder' and so forth, though the goat may also slip every hand and wander free again.
+Admin sets the goat loose, belonging to nobody. All members of the server then have the opportunity to steal it for themselves, once per hour. One of the thieves is randomly selected to become the next 'goat holder' and so forth, though the goat may also slip every hand and wander free again. And a goat left wandering a whole round with nobody reaching for it finds its way to a home, if an admin has named one.
 
 -----
 
 #### FEATURES (v1):
 One goat, one holder, one hour at a time. Everybody gets to type `/goat steal` once per round, and typing it again won't help you. The current holder can't steal from themselves, sadly. When the hour runs out, one of the thieves is picked at random and the goat changes hands. If nobody bothered to try, the holder keeps it and their streak goes up by one.
+
+A goat belonging to nobody behaves differently. Reach for it and the usual draw happens, but leave it alone for a whole round and it goes home: `/goat config home:@somebody` names that person, and from then on an unclaimed goat ends up with them rather than wandering forever. They hold it like anybody else and can be stolen from. `/goat clear-home` takes the home away again, since a user picker can't be submitted empty. With no home set the goat simply keeps wandering, which is what it did before.
 
 The goat itself is a real Discord role called '𓃵 𝕘𝕠𝕒𝕥 𝕜𝕖𝕖𝕡𝕖𝕣', and the bot is the only thing allowed to hand it out. Sticking a goat in your nickname does nothing, sorry.
 
@@ -54,7 +56,9 @@ If you testing manually in a discord server, `/goat config minutes:2` makes the 
 /goat setup                         admin       set the goat loose
 /goat reset                         admin       wipe the slate, set it loose again
 /goat resolve                       admin       end this round right now
-/goat config [channel] [minutes]    admin       channel and round length
+/goat config [channel] [minutes] [home]
+                                    admin       channel, round length and the goat's home
+/goat clear-home                    admin       stop the goat returning to anybody
 ```
 
 
