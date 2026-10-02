@@ -83,8 +83,8 @@ var (
 // Fields: .Minutes .Free .Deadline .DeadlineAt
 var ClaimedMsg = msg("claimed", "```"+`
   ──────── ·𖤍· ────────
-      𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕚𝕤 𝕝𝕠𝕠𝕤𝕖
- ༺───────────────────༻
+     𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕚𝕤 𝕝𝕠𝕠𝕤𝕖
+  ༺───────────────────༻
 `+"```"+`
 The goat has been set loose upon the Kingdom. Perhaps it will find its rightful home. Or perhaps it will be stolen!
 Every {{.Minutes}} minutes, the goat becomes restless and unruly. If you attempted a `+"`"+`/goat steal`+"`"+` action before then, you may be declared as the reigning goat keeper! At {{.DeadlineAt}} we shall see who was the most cunning, who was clumsy, and who was gracious.`)
@@ -94,7 +94,7 @@ Every {{.Minutes}} minutes, the goat becomes restless and unruly. If you attempt
 var SurvivedMsg = msg("survived", "```"+`
   ──────── ·𖤍· ────────
      𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕤𝕥𝕒𝕪𝕤 𝕡𝕦𝕥
- ༺───────────────────༻
+  ༺───────────────────༻
 `+"```"+`
 Still, no one is brave enough to attempt another thieving of the goat! {{.Holder}} has held the beast for {{.Held}} now.
 {{if gt .Streak 1}}That is {{.Streak}} rounds unchallenged. The Kingdom grows complacent.
@@ -105,8 +105,8 @@ Still, no one is brave enough to attempt another thieving of the goat! {{.Holder
 // Fields: .Winner .Loser .Challengers .Count .Deadline .DeadlineAt .Total
 var StolenMsg = msg("stolen", "```"+`
   ──────── ·𖤍· ────────
-      𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕚𝕤 𝕤𝕥𝕠𝕝𝕖𝕟
- ༺───────────────────༻
+     𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕚𝕤 𝕤𝕥𝕠𝕝𝕖𝕟
+  ༺───────────────────༻
 `+"```"+`
 {{if .Loser}}{{.Winner}} has snatched the goat from {{.Loser}}!{{else}}{{.Winner}} has captured the wandering goat before it could find its home!{{end}}
 {{if gt .Count 1}}{{.Count}} thieves attempted to snatch it, but only one was cunning enough to succeed.
@@ -117,8 +117,8 @@ var StolenMsg = msg("stolen", "```"+`
 // Fields: .Winner .Loser .Challengers .Count .Deadline .DeadlineAt .Total
 var EscapedRecoveredMsg = msg("escaped_recovered", "```"+`
   ──────── ·𖤍· ────────
-    𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕚𝕤 𝕣𝕖𝕔𝕒𝕡𝕥𝕦𝕣𝕖𝕕
- ༺───────────────────༻
+   𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕚𝕤 𝕣𝕖𝕔𝕒𝕡𝕥𝕦𝕣𝕖𝕕
+  ༺───────────────────༻
 `+"```"+`
 {{.Winner}} has captured the goat! It wanders free no longer. {{.Count}} {{if eq .Count 1}}thief{{else}}thieves{{end}} tried to snatch the beast away from its path home.
 Mayhaps they will attempt again, before {{.DeadlineAt}}.`)
@@ -128,8 +128,8 @@ Mayhaps they will attempt again, before {{.DeadlineAt}}.`)
 // Fields: .Loser .Challengers .Count .Free .Deadline .DeadlineAt .Total
 var SlippedAwayMsg = msg("slipped_away", "```"+`
   ──────── ·𖤍· ────────
-    𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕨𝕒𝕟𝕕𝕖𝕣𝕤 𝕗𝕣𝕖𝕖
- ༺───────────────────༻
+   𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕨𝕒𝕟𝕕𝕖𝕣𝕤 𝕗𝕣𝕖𝕖
+  ༺───────────────────༻
 `+"```"+`
 The goat has evaded another nabbing! {{.Count}} have clumsily attempted to snag it from {{.Loser}}. But the goat frolics freely, hoping to find its rightful home by {{.DeadlineAt}}.`)
 
@@ -138,8 +138,8 @@ The goat has evaded another nabbing! {{.Count}} have clumsily attempted to snag 
 // Fields: .Loser .Deadline .DeadlineAt
 var EscapedUnheldMsg = msg("escaped_unheld", "```"+`
   ──────── ·𖤍· ────────
-    𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕨𝕒𝕟𝕕𝕖𝕣𝕤 𝕗𝕣𝕖𝕖
- ༺───────────────────༻
+  𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕨𝕒𝕟𝕕𝕖𝕣𝕤 𝕗𝕣𝕖𝕖
+  ༺───────────────────༻
 `+"```"+`
 The goat's latest keeper has fled the Kingdom, and so it frolics freely. Will it find its rightful home at last?
 Surely no one will attempt to capture it before {{.DeadlineAt}}.`)
@@ -150,7 +150,7 @@ Surely no one will attempt to capture it before {{.DeadlineAt}}.`)
 var HomeMsg = msg("home", "```"+`
   ──────── ·𖤍· ────────
     𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕘𝕠𝕖𝕤 𝕙𝕠𝕞𝕖
- ༺───────────────────༻
+  ༺───────────────────༻
 `+"```"+`
 At last! After {{.Free}} of wandering freely, the goat has found its proper home. {{.Holder}} keeps it now. Surely no one would even attempt to swipe it off them! 'Twould be of great dishonour...`)
 
@@ -159,8 +159,8 @@ At last! After {{.Free}} of wandering freely, the goat has found its proper home
 // Fields: .Actor .Minutes .Free .Deadline .DeadlineAt
 var ResetMsg = msg("reset", "```"+`
   ──────── ·𖤍· ────────
-        𝕒 𝕟𝕖𝕨 𝕠𝕣𝕕𝕖𝕣
- ༺───────────────────༻
+       𝕒 𝕟𝕖𝕨 𝕠𝕣𝕕𝕖𝕣
+  ༺───────────────────༻
 `+"```"+`
 {{.Actor}} has torn up the old order. Every streak is forgotten, and the goat once more roams free.
 Surely no one will attempt to snatch it before {{.DeadlineAt}}, when its back is turned.`)
@@ -217,8 +217,8 @@ var StatusUnheldMsg = msg("status_unheld", `The goat roams free! The beloved cre
 // Fields: .Lines .Total .Escapes .JourneysHome
 var HistoryHeaderMsg = msg("history_header", "```"+`
   ──────── ·𖤍· ────────
-       𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕝𝕖𝕕𝕘𝕖𝕣
- ༺───────────────────༻
+      𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕝𝕖𝕕𝕘𝕖𝕣
+  ༺───────────────────༻
 `+"```"+`
 In the goat's lifetime, much has occurred~
 {{.Total}} {{if eq .Total 1}}thieving{{else}}thievings{{end}}, {{.Escapes}} successful {{if eq .Escapes 1}}escape{{else}}escapes{{end}} and {{.JourneysHome}} {{if eq .JourneysHome 1}}journey{{else}}journeys{{end}} home.
@@ -273,8 +273,8 @@ var ShowNotHolderMsg = msg("show_not_holder", `The goat is held by another. {{.H
 // Fields: .Winner .Holder .Reason
 var RoleFailedMsg = msg("role_failed", "```"+`
   ──────── ·𖤍· ────────
-    𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕨𝕚𝕝𝕝 𝕟𝕠𝕥 𝕞𝕠𝕧𝕖
- ༺───────────────────༻
+  𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕨𝕚𝕝𝕝 𝕟𝕠𝕥 𝕞𝕠𝕧𝕖
+  ༺───────────────────༻
 `+"```"+`
 To much surprise, no thieving has taken place, despite many attempts. {{if .Holder}}{{.Holder}} keeps the goat, merely by happenstance.{{else}}The goat remains unclaimed, merely by happenstance.{{end}}
 Only the wisest in the Kingdom can decipher this strange and concerning message: {{.Reason}}.
