@@ -23,6 +23,7 @@ If the holder leaves the server while holding the goat, the goat 'escapes' and t
 
 Golang.
 Docker.
+Make.
 
 Fill out `.env` w/ vars from `.env.example`.
 
@@ -34,16 +35,26 @@ In Server Settings, Roles, ensure the bot's own role is above the goat role.
 
 Turn on Developer Mode (User Settings, Advanced), right click the server, Copy Server ID, and drop that into `.env` as `GUILD_ID`.
 
-Then `go run ./cmd/goat-bot`, and once it's up, `/goat config channel:#wherever` followed by `/goat setup`. The goat is now loose.
+Then `make run`, and once it's up, `/goat config channel:#wherever` followed by `/goat setup`. The goat is now loose.
 
-For leaving it up unattended there's a `compose.yaml`, so run `docker compose up -d --build`.
+For leaving it up unattended, `make up` builds it and hands it to docker. `make logs` to watch it, `make down` to stop it. Run `make` on its own to see the lot.
+
+`make up` again is also how you redeploy after changing anything. The save file lives in `./data` on your own disk, so the goat survives a rebuild.
 
 -----
 
 #### TESTING:
-Unit testing, w/ discord mocked: `go test ./...`
+Unit testing, w/ discord mocked: `make test`. No token or internet needed.
 
-If you testing manually in a discord server, `/goat config minutes:2` makes the rounds two minutes long, and `/goat resolve` ends the current one. These are 'admin' only commands, meaning you need Manage Server or Administrator discord server permission. 
+`make lint` formats everything and runs `go vet` over it, which catches the daft mistakes the compiler lets through.
+
+#### PREVIEWING THE BANNERS:
+
+Fonts lie. A banner that lines up perfectly in your editor can come out crooked in Discord, because Discord's code blocks only render some characters as monospace and quietly swap the font for the rest.
+
+Run `/goat preview` in whatever channel you like and the bot will post every banner message there, filled with dummy names and times, each one labelled. Then look at it on desktop and on your phone and see the truth. Nobody gets pinged, the fake mentions are inert. Add `all:True` to include the messages that have no banner.
+
+It also tells you, privately, about any characters sitting outside the ranges Discord keeps monospace. Box drawing and braille are safe. Fancy lettering like 𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 is not, nor are ornaments like 𖤍 or ༺ ༻, so those will drift no matter how neat they look here.
 
 -----
 
@@ -59,6 +70,7 @@ If you testing manually in a discord server, `/goat config minutes:2` makes the 
 /goat config [channel] [minutes] [home]
                                     admin       channel, round length and the goat's home
 /goat clear-home                    admin       stop the goat returning to anybody
+/goat preview [all]                 admin       post every banner here to check how it looks
 ```
 
 

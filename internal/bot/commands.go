@@ -55,6 +55,19 @@ func CommandDefs() []*discordgo.ApplicationCommand {
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 				{
+					Name:        "preview",
+					Description: DescPreview,
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Name:        "all",
+							Description: DescPreviewAll,
+							Type:        discordgo.ApplicationCommandOptionBoolean,
+							Required:    false,
+						},
+					},
+				},
+				{
 					Name:        "config",
 					Description: DescConfig,
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -186,6 +199,12 @@ func (h handler) goat(i *discordgo.InteractionCreate, sub string, data discordgo
 		return h.status()
 	case "clear-home":
 		return render(ConfigDoneMsg, h.game.ClearHome())
+	case "preview":
+		all := false
+		if o := option(opts, "all"); o != nil {
+			all = o.BoolValue()
+		}
+		return h.game.Preview(i.ChannelID, all)
 	case "config":
 		channelID := ""
 		if o := option(opts, "channel"); o != nil {
