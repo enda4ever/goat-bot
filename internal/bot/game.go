@@ -18,24 +18,26 @@ var (
 )
 
 type Game struct {
-	cfg   Config
-	dg    Discord
-	store Store
-	rng   *rand.Rand
-	pick  func(int) int
-	s     *State
+	cfg        Config
+	dg         Discord
+	store      Store
+	rng        *rand.Rand
+	retryDelay time.Duration
+	pick       func(int) int
+	s          *State
 
 	reqs chan func()
 }
 
 func NewGame(cfg Config, dg Discord, store Store, s *State, rng *rand.Rand) *Game {
 	g := &Game{
-		cfg:   cfg,
-		dg:    dg,
-		store: store,
-		rng:   rng,
-		s:     s,
-		reqs:  make(chan func()),
+		cfg:        cfg,
+		dg:         dg,
+		store:      store,
+		rng:        rng,
+		retryDelay: 2 * time.Second,
+		s:          s,
+		reqs:       make(chan func()),
 	}
 	g.pick = g.rng.IntN
 	return g
@@ -129,6 +131,49 @@ func (g *Game) startRound(now time.Time) {
 	g.s.RoundEndsAt = now.Add(g.s.roundDuration())
 }
 
+func transient(err error) bool {
+	var rest *discordgo.RESTError
+	if errors.As(err, &rest) {
+		if rest.Response == nil {
+			return true
+		}
+		return rest.Response.StatusCode >= 500
+	}
+	return true
+}
+
+func (g *Game) giveGoatRole(userID string) error {
+	var err error
+	for attempt := 1; attempt <= 4; attempt++ {
+		err = g.dg.GuildMemberRoleAdd(g.cfg.GuildID, userID, g.s.GoatRoleID)
+		if err == nil {
+			return nil
+		}
+		if !transient(err) {
+			return err
+		}
+		log.Printf("discord: giving the goat role to %s failed (attempt %d of 4), retrying: %v", userID, attempt, err)
+		time.Sleep(time.Duration(attempt) * g.retryDelay)
+	}
+	return err
+}
+
+func (g *Game) takeGoatRole(userID string) error {
+	var err error
+	for attempt := 1; attempt <= 4; attempt++ {
+		err = g.dg.GuildMemberRoleRemove(g.cfg.GuildID, userID, g.s.GoatRoleID)
+		if err == nil {
+			return nil
+		}
+		if !transient(err) {
+			return err
+		}
+		log.Printf("discord: taking the goat role from %s failed (attempt %d of 4), retrying: %v", userID, attempt, err)
+		time.Sleep(time.Duration(attempt) * g.retryDelay)
+	}
+	return err
+}
+
 func (g *Game) memberPresent(userID string) bool {
 	if userID == "" {
 		return false
@@ -177,7 +222,7 @@ func (g *Game) resolve() {
 	}
 	winner := live[draw]
 
-	if err := g.dg.GuildMemberRoleAdd(g.cfg.GuildID, winner, g.s.GoatRoleID); err != nil {
+	if err := g.giveGoatRole(winner); err != nil {
 		log.Printf("discord: could not give the goat role: %v", err)
 		g.startRound(now)
 		g.save()
@@ -191,7 +236,7 @@ func (g *Game) resolve() {
 
 	loser := g.s.HolderID
 	if loser != "" {
-		if err := g.dg.GuildMemberRoleRemove(g.cfg.GuildID, loser, g.s.GoatRoleID); err != nil {
+		if err := g.takeGoatRole(loser); err != nil {
 			log.Printf("discord: could not take the goat role, continuing anyway: %v", err)
 		}
 		g.s.recordReign(now)
@@ -227,7 +272,7 @@ func (g *Game) resolve() {
 func (g *Game) slipAway(now time.Time, live []string, escaped bool, prevHolder string) {
 	loser := g.s.HolderID
 	if loser != "" {
-		if err := g.dg.GuildMemberRoleRemove(g.cfg.GuildID, loser, g.s.GoatRoleID); err != nil {
+		if err := g.takeGoatRole(loser); err != nil {
 			log.Printf("discord: could not take the goat role as it slipped away: %v", err)
 		}
 		g.s.recordReign(now)
@@ -264,7 +309,7 @@ func (g *Game) goHome(now time.Time) bool {
 	}
 	free := heldFor(g.s.UnheldSince)
 
-	if err := g.dg.GuildMemberRoleAdd(g.cfg.GuildID, g.s.HomeID, g.s.GoatRoleID); err != nil {
+	if err := g.giveGoatRole(g.s.HomeID); err != nil {
 		log.Printf("discord: could not send the goat home: %v", err)
 		return false
 	}
@@ -391,7 +436,7 @@ func (g *Game) reset(actorID string) (MsgData, error) {
 
 	now := time.Now()
 	if g.s.HolderID != "" {
-		if err := g.dg.GuildMemberRoleRemove(g.cfg.GuildID, g.s.HolderID, g.s.GoatRoleID); err != nil {
+		if err := g.takeGoatRole(g.s.HolderID); err != nil {
 			log.Printf("discord: could not take the goat role during reset: %v", err)
 		}
 	}
@@ -516,7 +561,7 @@ func (g *Game) ensureRoleAtStartup() {
 	if g.s.HolderID == "" || !g.memberPresent(g.s.HolderID) {
 		return
 	}
-	if err := g.dg.GuildMemberRoleAdd(g.cfg.GuildID, g.s.HolderID, g.s.GoatRoleID); err != nil {
+	if err := g.giveGoatRole(g.s.HolderID); err != nil {
 		log.Printf("discord: could not restore the goat role: %v", err)
 	}
 }
