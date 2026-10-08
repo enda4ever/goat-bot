@@ -48,6 +48,7 @@ func newTestGame(t *testing.T, s *State, members ...string) (*Game, *fakeDiscord
 	fake := newFake(members...)
 	store := &memStore{}
 	game := NewGame(Config{GuildID: "g", StatePath: "mem"}, fake, store, s, rand.New(rand.NewPCG(1, 2)))
+	game.retryDelay = 0
 	return game, fake, store
 }
 
@@ -668,5 +669,40 @@ func TestClearHomeRemovesTheStoredID(t *testing.T) {
 	}
 	if len(fake.sent) != 0 {
 		t.Errorf("announced %v, want silence", fake.sent)
+	}
+}
+
+func TestTransientRoleFailureIsRetried(t *testing.T) {
+	s := baseState()
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	fake.flakyAddTimes = 2
+
+	game.resolve()
+
+	if s.HolderID != "bob" {
+		t.Fatalf("holder = %q, want bob; a 503 should be retried, not thrown away", s.HolderID)
+	}
+	if fake.addCalls != 3 {
+		t.Errorf("role add attempts = %d, want 3", fake.addCalls)
+	}
+	if got := lastSent(fake); !strings.HasPrefix(got, "STOLEN") {
+		t.Errorf("announced %q, want the stolen message", got)
+	}
+}
+
+func TestPermissionFailureIsNotRetried(t *testing.T) {
+	s := baseState()
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	fake.failRoleAdd = errForced
+
+	game.resolve()
+
+	if fake.addCalls != 1 {
+		t.Errorf("role add attempts = %d, want 1; a 403 will never succeed on retry", fake.addCalls)
+	}
+	if s.HolderID != "alice" {
+		t.Errorf("holder = %q, want alice to keep it", s.HolderID)
 	}
 }

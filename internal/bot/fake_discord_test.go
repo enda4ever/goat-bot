@@ -1,7 +1,6 @@
 package bot
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/bwmarrin/discordgo"
@@ -13,6 +12,7 @@ type fakeDiscord struct {
 	sent    []string
 
 	failRoleAdd    error
+	flakyAddTimes  int
 	failRoleRemove error
 
 	addCalls    int
@@ -61,6 +61,10 @@ func (f *fakeDiscord) GuildMember(guildID, userID string, options ...discordgo.R
 
 func (f *fakeDiscord) GuildMemberRoleAdd(guildID, userID, roleID string, options ...discordgo.RequestOption) error {
 	f.addCalls++
+	if f.flakyAddTimes > 0 {
+		f.flakyAddTimes--
+		return errTransient
+	}
 	if f.failRoleAdd != nil {
 		return f.failRoleAdd
 	}
@@ -119,4 +123,12 @@ func (m *memStore) Save(s *State) error {
 	return nil
 }
 
-var errForced = errors.New("forced failure")
+var errForced = &discordgo.RESTError{
+	Response: &http.Response{StatusCode: http.StatusForbidden},
+	Message:  &discordgo.APIErrorMessage{Code: 50013, Message: "Missing Permissions"},
+}
+
+var errTransient = &discordgo.RESTError{
+	Response: &http.Response{StatusCode: http.StatusServiceUnavailable},
+	Message:  &discordgo.APIErrorMessage{Message: "Service Unavailable"},
+}
