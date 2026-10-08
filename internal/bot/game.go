@@ -227,9 +227,11 @@ func (g *Game) resolve() {
 		g.startRound(now)
 		g.save()
 		g.announce(RoleFailedMsg, MsgData{
-			Winner: mention(winner),
-			Holder: mention(g.s.HolderID),
-			Reason: err.Error(),
+			Winner:    mention(winner),
+			Holder:    mention(g.s.HolderID),
+			Count:     len(live),
+			Transient: transient(err),
+			Reason:    err.Error(),
 		})
 		return
 	}
