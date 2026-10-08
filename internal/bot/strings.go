@@ -60,6 +60,7 @@ type MsgData struct {
 	From         string
 	To           string
 	Reason       string
+	Transient    bool
 }
 
 func msg(name, body string) *template.Template {
@@ -87,7 +88,7 @@ var ClaimedMsg = msg("claimed", "```"+`
   ༺───────────────────༻
 `+"```"+`
 The goat has been set loose upon the Kingdom. Perhaps it will find its rightful home. Or perhaps it will be stolen!
-Every {{.Minutes}} minutes, the goat becomes restless and unruly. If you attempted a `+"`"+`/goat steal`+"`"+` action before then, you may be declared as the reigning goat keeper! At {{.DeadlineAt}} we shall see who was the most cunning, who was clumsy, and who was gracious.`)
+Every {{.Minutes}} {{if eq .Minutes 1}}minute{{else}}minutes{{end}}, the goat becomes restless and unruly. If you attempted a `+"`"+`/goat steal`+"`"+` action before then, you may be declared as the reigning goat keeper! At {{.DeadlineAt}} we shall see who was the most cunning, who was clumsy, and who was gracious.`)
 
 // Sent at the end of a round in which nobody entered. The holder keeps it.
 // Fields: .Holder .Streak .Deadline .DeadlineAt .HeldSince .Held
@@ -131,7 +132,7 @@ var SlippedAwayMsg = msg("slipped_away", "```"+`
    𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕨𝕒𝕟𝕕𝕖𝕣𝕤 𝕗𝕣𝕖𝕖
   ༺───────────────────༻
 `+"```"+`
-The goat has evaded another nabbing! {{.Count}} have clumsily attempted to snag it from {{.Loser}}. But the goat frolics freely, hoping to find its rightful home by {{.DeadlineAt}}.`)
+The goat has evaded another nabbing! {{.Count}} {{if eq .Count 1}}thief has{{else}}thieves have{{end}} clumsily attempted to snag it{{if .Loser}} from {{.Loser}}{{end}}. But the goat frolics freely, hoping to find its rightful home by {{.DeadlineAt}}.`)
 
 // Sent when the holder left the server and nobody had entered, so the goat is
 // now unheld and waiting for the next round's entrants.
@@ -256,7 +257,7 @@ var ShowGoatMsg = msg("show_goat", "```"+`
 ⠀⢠⠦⠶⠤⠞⡵⢩⡥⠴⠲⠪⠵⠶⠶⣶⢞⠿⠷⠶⠶⠶⠒
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠀⠀⠀⠀⠀⠀
 `+"```"+`
-{{.Holder}} stole the goat {{.HeldSince}}.{{if .Streak}} No one else has dared reach for it in {{.Streak}} rounds.{{end}}`)
+{{.Holder}} stole the goat {{.HeldSince}}.{{if .Streak}} No one else has dared reach for it in {{.Streak}} {{if eq .Streak 1}}round{{else}}rounds{{end}}.{{end}}`)
 
 // /goat show by anybody else. Ephemeral.
 // Fields: .Holder .Count .Deadline .DeadlineAt
@@ -276,9 +277,9 @@ var RoleFailedMsg = msg("role_failed", "```"+`
   𝕥𝕙𝕖 𝕘𝕠𝕒𝕥 𝕨𝕚𝕝𝕝 𝕟𝕠𝕥 𝕞𝕠𝕧𝕖
   ༺───────────────────༻
 `+"```"+`
-To much surprise, no thieving has taken place, despite many attempts. {{if .Holder}}{{.Holder}} keeps the goat, merely by happenstance.{{else}}The goat remains unclaimed, merely by happenstance.{{end}}
-Only the wisest in the Kingdom can decipher this strange and concerning message: {{.Reason}}.
-Heed it, wise ones: the bot's own role must sit above the goat keeper role in Server Settings. Drag it higher, then run /goat resolve to settle this round properly.`)
+To much surprise, no thieving has taken place, despite {{.Count}} {{if eq .Count 1}}attempt{{else}}attempts{{end}}. {{if .Holder}}{{.Holder}} keeps the goat, merely by happenstance.{{else}}The goat remains unclaimed, merely by happenstance.{{end}}
+Only the wisest in the Kingdom can decipher this strange and concerning message: {{.Reason}}.{{if not .Transient}}
+Heed it, wise ones: the bot's own role must sit above the goat keeper role in Server Settings. Drag it higher, then run /goat resolve to settle this round properly.{{end}}`)
 
 // Ephemeral. An admin command ran but no announcement channel is configured.
 // Fields: .Channel .Minutes
