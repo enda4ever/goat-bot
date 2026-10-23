@@ -12,10 +12,12 @@ type fakeDiscord struct {
 	sent    []string
 
 	failRoleAdd    error
+	failAddOfRole  string
 	flakyAddTimes  int
 	failRoleRemove error
 
 	addCalls    int
+	memberCalls int
 	removeCalls int
 }
 
@@ -53,10 +55,11 @@ func (f *fakeDiscord) holdersOf(roleID string) []string {
 }
 
 func (f *fakeDiscord) GuildMember(guildID, userID string, options ...discordgo.RequestOption) (*discordgo.Member, error) {
+	f.memberCalls++
 	if !f.present[userID] {
 		return nil, notFound()
 	}
-	return &discordgo.Member{User: &discordgo.User{ID: userID}}, nil
+	return &discordgo.Member{User: &discordgo.User{ID: userID}, Roles: f.roles[userID]}, nil
 }
 
 func (f *fakeDiscord) GuildMemberRoleAdd(guildID, userID, roleID string, options ...discordgo.RequestOption) error {
@@ -65,7 +68,11 @@ func (f *fakeDiscord) GuildMemberRoleAdd(guildID, userID, roleID string, options
 		f.flakyAddTimes--
 		return errTransient
 	}
-	if f.failRoleAdd != nil {
+	if f.failAddOfRole != "" {
+		if f.failAddOfRole == roleID {
+			return errForced
+		}
+	} else if f.failRoleAdd != nil {
 		return f.failRoleAdd
 	}
 	for _, r := range f.roles[userID] {
@@ -93,11 +100,14 @@ func (f *fakeDiscord) GuildMemberRoleRemove(guildID, userID, roleID string, opti
 }
 
 func (f *fakeDiscord) GuildRoles(guildID string, options ...discordgo.RequestOption) ([]*discordgo.Role, error) {
-	return []*discordgo.Role{{ID: "role-goat", Name: goatRoleName}}, nil
+	return []*discordgo.Role{
+		{ID: "role-goat", Name: goatRoleName},
+		{ID: "role-friend", Name: friendRoleName},
+	}, nil
 }
 
 func (f *fakeDiscord) GuildRoleCreate(guildID string, data *discordgo.RoleParams, options ...discordgo.RequestOption) (*discordgo.Role, error) {
-	return &discordgo.Role{ID: "role-new", Name: goatRoleName}, nil
+	return &discordgo.Role{ID: "role-new-" + data.Name, Name: data.Name}, nil
 }
 
 func (f *fakeDiscord) ChannelMessageSendComplex(channelID string, data *discordgo.MessageSend, options ...discordgo.RequestOption) (*discordgo.Message, error) {

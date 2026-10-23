@@ -1,11 +1,11 @@
 # Privacy Policy for Goat Bot
 
-Last updated: 1 October 2026
+Last updated: 22 October 2026
 
 -----
 
 #### What identifying data is stored:
-For functional reasons, your Discord user ID is stored if you've ever held the goat or tried to steal it. Also, the hour you got the goat, the hour you lost it, and how many hourly rounds running you managed to keep the goat. That is all.
+For functional reasons, your Discord user ID is stored if you've ever held the goat or tried to steal it. Also, when you got the goat, when you lost it, and how many rounds running you managed to keep the goat. That is all.
 
 An admin can also name one person as the goat's home, which is where the goat ends up if a whole round passes with nobody reaching for it. That person's user ID is stored from the moment they are named, before they have held the goat or tried to steal it, and it stays there until an admin names somebody else or runs `/goat clear-home`.
 
@@ -16,7 +16,7 @@ A user ID is a public identifying number that Discord gives you when you sign up
 #### How long this data is stored:
 The reign records keep the last fifty times the goat changed hands, and no more.
 
-The list of who tried to steal this hour is wiped at the end of every hour, win or lose.
+The list of who tried to steal this round is wiped at the end of every round, win or lose.
 
 -----
 

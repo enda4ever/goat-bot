@@ -2,18 +2,22 @@
 ##### a discord bot, customly made, about goat theft
 
 #### THE IDEA:
-Admin sets the goat loose, belonging to nobody. All members of the server then have the opportunity to steal it for themselves, once per hour. One of the thieves is randomly selected to become the next 'goat holder' and so forth, though the goat may also slip every hand and wander free again. And a goat left wandering a whole round with nobody reaching for it finds its way to a home, if an admin has named one.
+Admin sets the goat loose, belonging to nobody. All members of the server then have the opportunity to steal it for themselves, once per round. One of the thieves is randomly selected to become the next 'goat holder' and so forth, though the goat may also slip every hand and wander free again. And a goat left wandering a whole round with nobody reaching for it finds its way to a home, if an admin has named one.
 
 -----
 
 #### FEATURES (v1):
-One goat, one holder, one hour at a time. Everybody gets to type `/goat steal` once per round, and typing it again won't help you. The current holder can't steal from themselves, sadly. When the hour runs out, one of the thieves is picked at random and the goat changes hands. If nobody bothered to try, the holder keeps it and their streak goes up by one.
+One goat, one holder, one round at a time. Everybody gets to type `/goat steal` once per round, and typing it again won't help you. The current holder can't steal from themselves, sadly. When the round runs out, one of the thieves is picked at random and the goat changes hands. If nobody bothered to try, the holder keeps it and their streak goes up by one.
 
 A goat belonging to nobody behaves differently. Reach for it and the usual draw happens, but leave it alone for a whole round and it goes home: `/goat config home:@somebody` names that person, and from then on an unclaimed goat ends up with them rather than wandering forever. They hold it like anybody else and can be stolen from. `/goat clear-home` takes the home away again, since a user picker can't be submitted empty. With no home set the goat simply keeps wandering, which is what it did before.
 
-The goat itself is a real Discord role called '𓃵 𝕘𝕠𝕒𝕥 𝕜𝕖𝕖𝕡𝕖𝕣', and the bot is the only thing allowed to hand it out. Sticking a goat in your nickname does nothing, sorry.
+The keeper gets one decision a round. `/goat pet` can go three ways for a first-time keeper: the goat breaks free of them on the spot, nothing comes of it, or it grows fond and stays an extra round, ignoring whoever reached for it. A keeper who has held the goat before within the last 24 hours is a friend of the goat, and for them petting can never lose it: either nothing happens, or they win the extra round. One pet per round either way.
 
-`/goat status` tells you who has it and how long is left. `/goat history` shows the recent holders and how long each of them clung on. The whole game lives in one little `state.json` file, so the bot can be shut down, updated, and started back up without losing the goat. If it was asleep when an hour ran out, it settles that one round when it wakes up and starts fresh, rather than pretending to play the six hours it missed.
+If the server has pronoun roles, `/goat pronouns` tells the bot which is which, and the messages refer to people accordingly. Anyone without one is they/them, and somebody with several, or a combo role like they/she, gets one picked at random each time. Pronouns are read from roles when a message is sent and never stored.
+
+The goat itself is a real Discord role called '𝕘𝕠𝕒𝕥 𝕜𝕖𝕖𝕡𝕖𝕣', and the bot is the only thing allowed to hand it out. There is a second role, '𝕗𝕣𝕚𝕖𝕟𝕕 𝕠𝕗 𝕥𝕙𝕖 𝕘𝕠𝕒𝕥', worn alongside it by a keeper who has held the goat before within the last 24 hours. The bot creates both roles hoisted, but it cannot position them, so drag them where you want them in the member list. Sticking a goat in your nickname does nothing, sorry.
+
+`/goat status` tells you who has it and how long is left. `/goat history` shows the recent holders and how long each of them clung on. The whole game lives in one little `state.json` file, so the bot can be shut down, updated, and started back up without losing the goat. If it was asleep when a round ran out, it settles that one round when it wakes up and starts fresh, rather than pretending to play the six rounds it missed.
 
 If the holder leaves the server while holding the goat, the goat 'escapes' and the next round's thieves get to recover it. Nobody gets credit for stealing from somebody who ran away.
 
@@ -60,7 +64,8 @@ It also tells you, privately, about any characters sitting outside the ranges Di
 
 #### COMMANDS:
 ```txt
-/goat steal                         everyone    try to take the goat this hour
+/goat steal                         everyone    try to take the goat this round
+/goat pet                           everyone    pet the goat, if it's yours
 /goat status                        everyone    who has it, how long is left
 /goat history                       everyone    recent holders
 /goat show                          everyone    the goat, if it's yours
@@ -70,6 +75,9 @@ It also tells you, privately, about any characters sitting outside the ranges Di
 /goat config [channel] [minutes] [home]
                                     admin       channel, round length and the goat's home
 /goat clear-home                    admin       stop the goat returning to anybody
+/goat pronouns [she] [he] [they] [heshe] [theyshe] [theyhe]
+                                    admin       which roles mean which pronouns
+/goat clear-pronouns                admin       forget the pronoun roles
 /goat preview [all]                 admin       post every banner here to check how it looks
 ```
 

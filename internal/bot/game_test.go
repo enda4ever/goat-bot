@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"github.com/bwmarrin/discordgo"
 	"math/rand/v2"
 	"strings"
 	"testing"
@@ -18,12 +19,16 @@ func withTestCopy(t *testing.T) {
 	slots := map[**template.Template]string{
 		&ClaimedMsg:          "CLAIMED {{.Holder}}",
 		&SurvivedMsg:         "SURVIVED {{.Holder}} streak={{.Streak}}",
-		&StolenMsg:           "STOLEN winner={{.Winner}} loser={{.Loser}} count={{.Count}}",
+		&StolenMsg:           "STOLEN winner={{.Winner}} loser={{.Loser}} count={{.Count}} friend={{.Friend}}",
 		&EscapedRecoveredMsg: "ESCAPED_RECOVERED winner={{.Winner}} loser={{.Loser}}",
 		&EscapedUnheldMsg:    "ESCAPED_UNHELD loser={{.Loser}}",
 		&ResetMsg:            "RESET {{.Holder}}",
 		&RoleFailedMsg:       "ROLE_FAILED winner={{.Winner}} holder={{.Holder}}",
 		&SlippedAwayMsg:      "SLIPPED_AWAY loser={{.Loser}} count={{.Count}}",
+		&PetBrokeFreeMsg:     "PET_BROKE_FREE holder={{.Holder}} friend={{.Friend}}",
+		&PetNoEffectMsg:      "PET_NO_EFFECT holder={{.Holder}} friend={{.Friend}}",
+		&PetBonusMsg:         "PET_BONUS holder={{.Holder}} friend={{.Friend}}",
+		&PetLoyalMsg:         "PET_LOYAL holder={{.Holder}}",
 		&HomeMsg:             "HOME holder={{.Holder}} free={{.Free}}",
 	}
 
@@ -59,6 +64,7 @@ func alwaysPicks(g *Game, i int) {
 func baseState() *State {
 	return &State{
 		GoatRoleID:      "role-goat",
+		FriendRoleID:    "role-friend",
 		AnnounceChannel: "chan",
 		RoundMinutes:    60,
 		HolderID:        "alice",
@@ -704,5 +710,525 @@ func TestPermissionFailureIsNotRetried(t *testing.T) {
 	}
 	if s.HolderID != "alice" {
 		t.Errorf("holder = %q, want alice to keep it", s.HolderID)
+	}
+}
+
+func friendlyState(t *testing.T) *State {
+	t.Helper()
+	s := baseState()
+	s.History = []Reign{{
+		UserID: "alice",
+		From:   time.Now().Add(-5 * time.Hour),
+		To:     time.Now().Add(-4 * time.Hour),
+	}}
+	return s
+}
+
+func TestPetRefusedForNonHolder(t *testing.T) {
+	s := baseState()
+	game, _, _ := newTestGame(t, s, "alice", "bob")
+
+	if _, _, err := game.pet("bob"); err != ErrNotHolder {
+		t.Fatalf("err = %v, want ErrNotHolder", err)
+	}
+	if s.PettedThisRound {
+		t.Error("a refused pet should not consume the round's pet")
+	}
+}
+
+func TestSecondPetRefusedForAFriend(t *testing.T) {
+	s := friendlyState(t)
+	game, _, _ := newTestGame(t, s, "alice")
+	alwaysPicks(game, 0)
+
+	if _, _, err := game.pet("alice"); err != nil {
+		t.Fatalf("first pet: %v", err)
+	}
+	if _, _, err := game.pet("alice"); err != ErrAlreadyPetted {
+		t.Fatalf("second pet err = %v, want ErrAlreadyPetted", err)
+	}
+	if s.HolderID != "alice" {
+		t.Errorf("holder = %q, want alice; a friend keeps the goat", s.HolderID)
+	}
+}
+
+func TestSecondPetFreesTheGoatForNewcomers(t *testing.T) {
+	s := baseState()
+	game, fake, _ := newTestGame(t, s, "alice")
+	fake.roles["alice"] = []string{"role-goat"}
+	alwaysPicks(game, 1)
+
+	if _, out, err := game.pet("alice"); err != nil || out != petNoEffect {
+		t.Fatalf("first pet: out = %v, err = %v", out, err)
+	}
+
+	_, out, err := game.pet("alice")
+	if err != nil {
+		t.Fatalf("second pet: %v", err)
+	}
+	if out != petBrokeFree {
+		t.Fatalf("outcome = %v, want petBrokeFree", out)
+	}
+	if s.HolderID != "" {
+		t.Errorf("holder = %q, want nobody", s.HolderID)
+	}
+	if got := fake.holdersOf("role-goat"); len(got) != 0 {
+		t.Errorf("goat role held by %v, want nobody", got)
+	}
+}
+
+func TestPetCanBreakTheGoatFree(t *testing.T) {
+	s := baseState()
+	game, fake, _ := newTestGame(t, s, "alice")
+	fake.roles["alice"] = []string{"role-goat"}
+	alwaysPicks(game, 0)
+	ends := s.RoundEndsAt
+
+	_, out, err := game.pet("alice")
+	if err != nil {
+		t.Fatalf("pet: %v", err)
+	}
+	if out != petBrokeFree {
+		t.Fatalf("outcome = %v, want petBrokeFree", out)
+	}
+	if s.HolderID != "" {
+		t.Errorf("holder = %q, want nobody", s.HolderID)
+	}
+	if got := fake.holdersOf("role-goat"); len(got) != 0 {
+		t.Errorf("goat role held by %v, want nobody", got)
+	}
+	if len(s.History) != 1 || s.History[0].UserID != "alice" {
+		t.Fatalf("history = %+v, want alice's reign", s.History)
+	}
+	if s.TotalEscapes != 1 {
+		t.Errorf("escapes = %d, want 1", s.TotalEscapes)
+	}
+	if s.UnheldSince.IsZero() {
+		t.Error("UnheldSince was not stamped")
+	}
+	if !s.RoundEndsAt.Equal(ends) {
+		t.Error("the round should continue, not restart")
+	}
+}
+
+func TestPetNoEffectLeavesTheRoundAlone(t *testing.T) {
+	s := baseState()
+	game, _, _ := newTestGame(t, s, "alice")
+	alwaysPicks(game, 1)
+	ends := s.RoundEndsAt
+
+	_, out, err := game.pet("alice")
+	if err != nil {
+		t.Fatalf("pet: %v", err)
+	}
+	if out != petNoEffect {
+		t.Fatalf("outcome = %v, want petNoEffect", out)
+	}
+	if s.HolderID != "alice" {
+		t.Errorf("holder = %q, want alice", s.HolderID)
+	}
+	if s.BonusRounds != 0 {
+		t.Errorf("bonus rounds = %d, want 0", s.BonusRounds)
+	}
+	if !s.RoundEndsAt.Equal(ends) {
+		t.Error("deadline moved")
+	}
+}
+
+func TestPetGrantsABonusRound(t *testing.T) {
+	s := baseState()
+	game, _, _ := newTestGame(t, s, "alice")
+	alwaysPicks(game, 2)
+
+	_, out, err := game.pet("alice")
+	if err != nil {
+		t.Fatalf("pet: %v", err)
+	}
+	if out != petBonusRound {
+		t.Fatalf("outcome = %v, want petBonusRound", out)
+	}
+	if s.BonusRounds != 1 {
+		t.Errorf("bonus rounds = %d, want 1", s.BonusRounds)
+	}
+	if s.HolderID != "alice" {
+		t.Errorf("holder = %q, want alice", s.HolderID)
+	}
+}
+
+func TestBonusRoundKeepsHolderAndDiscardsChallengers(t *testing.T) {
+	s := baseState()
+	s.BonusRounds = 1
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	alwaysPicks(game, 0)
+
+	game.resolve()
+
+	if s.HolderID != "alice" {
+		t.Fatalf("holder = %q, want alice kept the goat", s.HolderID)
+	}
+	if s.BonusRounds != 0 {
+		t.Errorf("bonus rounds = %d, want spent", s.BonusRounds)
+	}
+	if len(s.Challengers) != 0 {
+		t.Errorf("challengers = %v, want discarded", s.Challengers)
+	}
+	if s.HolderStreak != 1 {
+		t.Errorf("streak = %d, want 1; a protected round still counts", s.HolderStreak)
+	}
+	if s.TotalTransfers != 0 {
+		t.Errorf("transfers = %d, want 0", s.TotalTransfers)
+	}
+	if got := lastSent(fake); !strings.HasPrefix(got, "PET_LOYAL") {
+		t.Errorf("announced %q, want the loyal message", got)
+	}
+}
+
+func TestBonusRoundDoesNotRescueADepartedHolder(t *testing.T) {
+	s := baseState()
+	s.BonusRounds = 1
+	game, fake, _ := newTestGame(t, s, "alice")
+	fake.leave("alice")
+
+	game.resolve()
+
+	if s.HolderID != "" {
+		t.Errorf("holder = %q, want nobody", s.HolderID)
+	}
+	if s.BonusRounds != 1 {
+		t.Errorf("bonus rounds = %d, want untouched", s.BonusRounds)
+	}
+}
+
+func TestFriendNeverBreaksFree(t *testing.T) {
+	for _, pick := range []int{0, 1} {
+		s := friendlyState(t)
+		game, _, _ := newTestGame(t, s, "alice")
+		alwaysPicks(game, pick)
+
+		_, out, err := game.pet("alice")
+		if err != nil {
+			t.Fatalf("pick %d: pet: %v", pick, err)
+		}
+		if out == petBrokeFree {
+			t.Errorf("pick %d: a friend lost the goat to petting", pick)
+		}
+		if s.HolderID != "alice" {
+			t.Errorf("pick %d: holder = %q, want alice", pick, s.HolderID)
+		}
+	}
+}
+
+func TestFriendRoleGivenOnReturn(t *testing.T) {
+	s := baseState()
+	s.History = []Reign{{
+		UserID: "bob",
+		From:   time.Now().Add(-5 * time.Hour),
+		To:     time.Now().Add(-4 * time.Hour),
+	}}
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	alwaysPicks(game, 0)
+
+	game.resolve()
+
+	if s.HolderID != "bob" {
+		t.Fatalf("holder = %q, want bob", s.HolderID)
+	}
+	if got := fake.holdersOf("role-friend"); len(got) != 1 || got[0] != "bob" {
+		t.Errorf("friend role held by %v, want [bob]", got)
+	}
+	if got := fake.holdersOf("role-goat"); len(got) != 1 || got[0] != "bob" {
+		t.Errorf("goat role held by %v, want [bob]", got)
+	}
+}
+
+func TestFriendRoleWithheldOutsideWindow(t *testing.T) {
+	s := baseState()
+	s.History = []Reign{{
+		UserID: "bob",
+		From:   time.Now().Add(-26 * time.Hour),
+		To:     time.Now().Add(-25 * time.Hour),
+	}}
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	alwaysPicks(game, 0)
+
+	game.resolve()
+
+	if got := fake.holdersOf("role-friend"); len(got) != 0 {
+		t.Errorf("friend role held by %v, want nobody; the reign is too old", got)
+	}
+}
+
+func TestFriendRoleRemovedWhenGoatLeaves(t *testing.T) {
+	s := friendlyState(t)
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	fake.roles["alice"] = []string{"role-goat", "role-friend"}
+	alwaysPicks(game, 0)
+
+	game.resolve()
+
+	if s.HolderID != "bob" {
+		t.Fatalf("holder = %q, want bob", s.HolderID)
+	}
+	for _, role := range []string{"role-goat", "role-friend"} {
+		for _, who := range fake.holdersOf(role) {
+			if who == "alice" {
+				t.Errorf("alice still holds %s after losing the goat", role)
+			}
+		}
+	}
+}
+
+func TestFriendRoleFailureStillCommitsTheTransfer(t *testing.T) {
+	s := baseState()
+	s.History = []Reign{{
+		UserID: "bob",
+		From:   time.Now().Add(-5 * time.Hour),
+		To:     time.Now().Add(-4 * time.Hour),
+	}}
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	fake.failAddOfRole = "role-friend"
+	alwaysPicks(game, 0)
+
+	game.resolve()
+
+	if s.HolderID != "bob" {
+		t.Fatalf("holder = %q, want bob; a cosmetic badge must not abort a theft", s.HolderID)
+	}
+	if got := fake.holdersOf("role-goat"); len(got) != 1 || got[0] != "bob" {
+		t.Errorf("goat role held by %v, want [bob]", got)
+	}
+	if got := lastSent(fake); !strings.HasPrefix(got, "STOLEN") {
+		t.Errorf("announced %q, want the stolen message", got)
+	}
+}
+
+func TestStolenMessageNamesAReturningFriend(t *testing.T) {
+	s := baseState()
+	s.History = []Reign{{
+		UserID: "bob",
+		From:   time.Now().Add(-5 * time.Hour),
+		To:     time.Now().Add(-4 * time.Hour),
+	}}
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	alwaysPicks(game, 0)
+
+	game.resolve()
+
+	if got := lastSent(fake); !strings.Contains(got, "friend=true") {
+		t.Errorf("announced %q, want the friend flag set", got)
+	}
+}
+
+func TestStolenMessageOmitsFriendForNewcomers(t *testing.T) {
+	s := baseState()
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	alwaysPicks(game, 0)
+
+	game.resolve()
+
+	if got := lastSent(fake); !strings.Contains(got, "friend=false") {
+		t.Errorf("announced %q, want the friend flag unset", got)
+	}
+}
+
+func TestPronounsDefaultToThey(t *testing.T) {
+	s := baseState()
+	game, fake, _ := newTestGame(t, s, "alice")
+	if got := game.pronounsFor("alice").They(); got != "they" {
+		t.Errorf("no roles configured: got %q, want they", got)
+	}
+
+	s.PronounRoles = map[string]string{"she": "role-she"}
+	fake.roles["alice"] = []string{"role-unrelated"}
+	if got := game.pronounsFor("alice").They(); got != "they" {
+		t.Errorf("no pronoun role held: got %q, want they", got)
+	}
+}
+
+func TestPronounsFromAMappedRole(t *testing.T) {
+	s := baseState()
+	s.PronounRoles = map[string]string{"she": "role-she", "he": "role-he"}
+	game, fake, _ := newTestGame(t, s, "alice")
+	fake.roles["alice"] = []string{"role-she"}
+
+	p := game.pronounsFor("alice")
+	if p.They() != "she" || p.Them() != "her" || p.Their() != "her" || p.TheyHave() != "she's" {
+		t.Errorf("got %q/%q/%q/%q, want she/her/her/she's", p.They(), p.Them(), p.Their(), p.TheyHave())
+	}
+}
+
+func TestComboRolePicksFromBothPronouns(t *testing.T) {
+	for pick, want := range []string{"they", "she"} {
+		s := baseState()
+		s.PronounRoles = map[string]string{"theyshe": "role-theyshe"}
+		game, fake, _ := newTestGame(t, s, "alice")
+		fake.roles["alice"] = []string{"role-theyshe"}
+		alwaysPicks(game, pick)
+
+		if got := game.pronounsFor("alice").They(); got != want {
+			t.Errorf("pick %d: got %q, want %q", pick, got, want)
+		}
+	}
+}
+
+func TestSeveralPronounRolesArePooled(t *testing.T) {
+	for pick, want := range []string{"she", "he"} {
+		s := baseState()
+		s.PronounRoles = map[string]string{"she": "role-she", "he": "role-he"}
+		game, fake, _ := newTestGame(t, s, "alice")
+		fake.roles["alice"] = []string{"role-she", "role-he"}
+		alwaysPicks(game, pick)
+
+		if got := game.pronounsFor("alice").They(); got != want {
+			t.Errorf("pick %d: got %q, want %q", pick, got, want)
+		}
+	}
+}
+
+func TestPronounsForADepartedMemberFallBack(t *testing.T) {
+	s := baseState()
+	s.PronounRoles = map[string]string{"she": "role-she"}
+	game, _, _ := newTestGame(t, s, "alice")
+
+	if got := game.pronounsFor("ghost").They(); got != "they" {
+		t.Errorf("got %q, want they", got)
+	}
+}
+
+func TestConfigPronounsOnlySetsGivenRoles(t *testing.T) {
+	s := baseState()
+	s.PronounRoles = map[string]string{"she": "role-she"}
+	game, _, _ := newTestGame(t, s, "alice")
+
+	game.configPronouns(map[string]string{"he": "role-he"})
+
+	if s.PronounRoles["she"] != "role-she" || s.PronounRoles["he"] != "role-he" {
+		t.Errorf("roles = %v, want she kept and he added", s.PronounRoles)
+	}
+}
+
+func TestClearPronouns(t *testing.T) {
+	s := baseState()
+	s.PronounRoles = map[string]string{"she": "role-she"}
+	game, _, _ := newTestGame(t, s, "alice")
+
+	game.clearPronouns()
+
+	if len(s.PronounRoles) != 0 {
+		t.Errorf("roles = %v, want none", s.PronounRoles)
+	}
+}
+
+func TestShippedCopyRendersPronouns(t *testing.T) {
+	status := render(StatusMsg, MsgData{Holder: "@alice", Held: "3 hours", HolderPronouns: Pronouns{set: "she"}})
+	if !strings.Contains(status, "She's held the creature") || !strings.Contains(status, "But she must") {
+		t.Errorf("status = %q", status)
+	}
+
+	stolen := render(StolenMsg, MsgData{Winner: "@bob", Friend: true, WinnerPronouns: Pronouns{set: "he"}})
+	if !strings.Contains(stolen, "counts him a") {
+		t.Errorf("stolen = %q", stolen)
+	}
+
+	fallback := render(PetNoEffectMsg, MsgData{Holder: "@alice"})
+	if !strings.Contains(fallback, "extended their hand") {
+		t.Errorf("an unset pronoun should read they/them: %q", fallback)
+	}
+}
+
+func TestPronounsAreOnlyFetchedWhenTheCopyUsesThem(t *testing.T) {
+	s := baseState()
+	s.PronounRoles = map[string]string{"she": "role-she"}
+	game, fake, _ := newTestGame(t, s, "alice")
+	fake.roles["alice"] = []string{"role-she"}
+
+	before := fake.memberCalls
+	render(ShowGoatMsg, MsgData{Holder: "@alice", HolderPronouns: game.pronounsFor("alice")})
+	if fake.memberCalls != before {
+		t.Errorf("a message without pronouns fetched the member %d times", fake.memberCalls-before)
+	}
+
+	before = fake.memberCalls
+	out := render(StatusMsg, MsgData{Holder: "@alice", HolderPronouns: game.pronounsFor("alice")})
+	if fake.memberCalls-before != 1 {
+		t.Errorf("fetched %d times, want exactly once for several pronouns in one message", fake.memberCalls-before)
+	}
+	if !strings.Contains(out, "She's held") || !strings.Contains(out, "But she must") {
+		t.Errorf("status = %q", out)
+	}
+}
+
+func testRoles() []*discordgo.Role {
+	return []*discordgo.Role{
+		{ID: "g", Name: "@everyone"},
+		{ID: "900", Name: "Goat Bot Test", Managed: true},
+		{ID: "109", Name: "𝔓𝔢𝔞𝔰𝔞𝔫𝔱", Position: 9},
+		{ID: "103", Name: "𝔰𝔥𝔢/𝔥𝔢𝔯", Position: 3},
+		{ID: "102", Name: "𝔥𝔢/𝔰𝔥𝔢", Position: 2},
+		{ID: "105", Name: "𝔱𝔥𝔢𝔶/𝔱𝔥𝔢𝔪", Position: 5},
+	}
+}
+
+func choiceIDs(cs []*discordgo.ApplicationCommandOptionChoice) []string {
+	ids := make([]string, len(cs))
+	for i, c := range cs {
+		ids[i], _ = c.Value.(string)
+	}
+	return ids
+}
+
+func TestPlainTextFlattensFancyFonts(t *testing.T) {
+	for in, want := range map[string]string{
+		"𝔰𝔥𝔢/𝔥𝔢𝔯": "she/her",
+		"𝔥𝔢/𝔰𝔥𝔢":  "he/she",
+		"𝕋𝕙𝕖𝕪/ℍ𝕖": "they/he",
+	} {
+		if got := plainText(in); got != want {
+			t.Errorf("plainText(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestRoleSuggestionsPutPronounRolesFirst(t *testing.T) {
+	got := choiceIDs(roleSuggestions(testRoles(), "g", ""))
+	want := []string{"105", "103", "102", "109"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("got %v, want %v: slashed roles first by position, no @everyone, no bot roles", got, want)
+	}
+}
+
+func TestRoleSuggestionsMatchThroughFonts(t *testing.T) {
+	got := choiceIDs(roleSuggestions(testRoles(), "g", "she"))
+	if strings.Join(got, ",") != "103,102" {
+		t.Errorf("typing she: got %v, want [she heshe]", got)
+	}
+}
+
+func TestResolveRoleValue(t *testing.T) {
+	roles := testRoles()
+	cases := []struct {
+		value, want string
+		ok          bool
+	}{
+		{"she", "", false},
+		{"he/she", "102", true},
+		{"she/her", "103", true},
+		{"they", "105", true},
+		{"103", "103", true},
+		{"nonsense", "", false},
+		{"Goat Bot Test", "", false},
+	}
+	for _, c := range cases {
+		got, ok := resolveRoleValue(roles, "g", c.value)
+		if got != c.want || ok != c.ok {
+			t.Errorf("resolveRoleValue(%q) = %q, %v; want %q, %v", c.value, got, ok, c.want, c.ok)
+		}
 	}
 }

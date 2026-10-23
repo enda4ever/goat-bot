@@ -13,6 +13,9 @@ const (
 	historyShown        = 10
 	goatRoleName        = "𝕘𝕠𝕒𝕥 𝕜𝕖𝕖𝕡𝕖𝕣"
 	goatRoleColor       = 0xC8A165
+	friendRoleName      = "𝕗𝕣𝕚𝕖𝕟𝕕 𝕠𝕗 𝕥𝕙𝕖 𝕘𝕠𝕒𝕥"
+	friendRoleColor     = 0x7A9A5B
+	friendWindow        = 24 * time.Hour
 )
 
 type Reign struct {
@@ -23,20 +26,24 @@ type Reign struct {
 }
 
 type State struct {
-	GoatRoleID        string    `json:"goat_role_id"`
-	AnnounceChannel   string    `json:"announce_channel"`
-	HomeID            string    `json:"home_id"`
-	RoundMinutes      int       `json:"round_minutes"`
-	HolderID          string    `json:"holder_id"`
-	HolderSince       time.Time `json:"holder_since"`
-	HolderStreak      int       `json:"holder_streak"`
-	UnheldSince       time.Time `json:"unheld_since"`
-	RoundEndsAt       time.Time `json:"round_ends_at"`
-	Challengers       []string  `json:"challengers"`
-	History           []Reign   `json:"history"`
-	TotalTransfers    int       `json:"total_transfers"`
-	TotalEscapes      int       `json:"total_escapes"`
-	TotalJourneysHome int       `json:"total_journeys_home"`
+	GoatRoleID        string            `json:"goat_role_id"`
+	FriendRoleID      string            `json:"friend_role_id"`
+	AnnounceChannel   string            `json:"announce_channel"`
+	HomeID            string            `json:"home_id"`
+	PronounRoles      map[string]string `json:"pronoun_roles"`
+	RoundMinutes      int               `json:"round_minutes"`
+	HolderID          string            `json:"holder_id"`
+	HolderSince       time.Time         `json:"holder_since"`
+	HolderStreak      int               `json:"holder_streak"`
+	UnheldSince       time.Time         `json:"unheld_since"`
+	RoundEndsAt       time.Time         `json:"round_ends_at"`
+	Challengers       []string          `json:"challengers"`
+	History           []Reign           `json:"history"`
+	TotalTransfers    int               `json:"total_transfers"`
+	TotalEscapes      int               `json:"total_escapes"`
+	TotalJourneysHome int               `json:"total_journeys_home"`
+	PettedThisRound   bool              `json:"petted_this_round"`
+	BonusRounds       int               `json:"bonus_rounds"`
 }
 
 func (s *State) started() bool {
@@ -46,6 +53,18 @@ func (s *State) started() bool {
 func (s *State) entered(userID string) bool {
 	for _, id := range s.Challengers {
 		if id == userID {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *State) heldWithin(userID string, window time.Duration, now time.Time) bool {
+	if userID == "" {
+		return false
+	}
+	for _, r := range s.History {
+		if r.UserID == userID && now.Sub(r.To) < window {
 			return true
 		}
 	}
