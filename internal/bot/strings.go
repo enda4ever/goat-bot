@@ -36,7 +36,7 @@ import (
 // PRONOUNS
 //
 // A person's pronouns come from the pronoun roles an admin mapped with
-// /goat pronouns, and default to they/them. Someone with several, or a combo
+// /goat-admin pronouns, and default to they/them. Someone with several, or a combo
 // role like they/she, gets one picked at random for each message:
 //
 //	{{.HolderPronouns.They}}      -> "she"
@@ -118,7 +118,7 @@ var (
 // PUBLIC ANNOUNCEMENTS  (posted in the announcement channel, visible to all)
 // ---------------------------------------------------------------------------
 
-// Sent once, when an admin runs /goat setup and the game begins. The goat
+// Sent once, when an admin runs /goat-admin setup and the game begins. The goat
 // belongs to nobody yet.
 // Fields: .Minutes .Free .Deadline .DeadlineAt
 var ClaimedMsg = msg("claimed", "```"+`
@@ -193,7 +193,7 @@ Will it find its rightful home at last?
 Surely no one will attempt to capture it before {{.DeadlineAt}}.`)
 
 // Sent when a whole round passed with the goat unheld and nobody reaching for
-// it, so it returns to the home an admin configured with /goat config home.
+// it, so it returns to the home an admin configured with /goat-admin config home.
 // Fields: .Holder .Free .Deadline .DeadlineAt .HolderPronouns
 var HomeMsg = msg("home", "```"+`
   ──────── ·𖤍· ────────
@@ -204,7 +204,7 @@ At last! After {{.Free}} of wandering freely, the 𓃵 𝕘𝕠𝕒𝕥 has foun
 {{.Holder}} keeps it now.
 Surely no one would even attempt to swipe it off {{.HolderPronouns.Them}}! 'Twould be of great dishonour...`)
 
-// Sent when an admin runs /goat reset: the streak is wiped and the goat is set
+// Sent when an admin runs /goat-admin reset: the streak is wiped and the goat is set
 // loose again, belonging to nobody.
 // Fields: .Actor .Minutes .Free .Deadline .DeadlineAt
 var ResetMsg = msg("reset", "```"+`
@@ -288,7 +288,7 @@ Others may be plotting to snatch it back.`)
 var AlreadyPettedMsg = msg("already_petted", `Though the 𓃵 𝕘𝕠𝕒𝕥 has become {{.Holder}}'s 𝕗𝕣𝕚𝕖𝕟𝕕, it is a skittish animal, none the less.
 Perhaps by {{.DeadlineAt}} it will be willing to receive another pet...`)
 
-// /goat steal before /goat setup has ever been run, so there is no round yet.
+// /goat steal before /goat-admin setup has ever been run, so there is no round yet.
 // Fields: none
 var NoRoundMsg = msg("no_round", `The 𓃵 𝕘𝕠𝕒𝕥 is nowhere to be found.
 Only the wisest folks in the Kingdom will know where to find it.`)
@@ -297,23 +297,23 @@ Only the wisest folks in the Kingdom will know where to find it.`)
 // Fields: none
 var NotAdminMsg = msg("not_admin", `Forbidden attempt to command the 𓃵 𝕘𝕠𝕒𝕥's fate!`)
 
-// /goat setup when a game is already running. Refuses, so a stray setup can
-// never wipe an ongoing game. Points at /goat reset instead.
+// /goat-admin setup when a game is already running. Refuses, so a stray setup can
+// never wipe an ongoing game. Points at /goat-admin reset instead.
 // Fields: .Holder .Minutes .Deadline .DeadlineAt
 var AlreadyRunningMsg = msg("already_running", `The 𓃵 𝕘𝕠𝕒𝕥 has already been set loose upon the Kingdom.
 No setup required. At {{.DeadlineAt}} we shall see who was the most cunning.
-Run /goat reset if you wish to tear up the old order and begin again.`)
+Run /goat-admin reset if you wish to tear up the old order and begin again.`)
 
-// /goat config confirmation.
+// /goat-admin config confirmation.
 // Fields: .Channel .Minutes
 var ConfigDoneMsg = msg("config_done", `A successful command!`)
 
-// /goat pronouns once every role has been found. Lists the full mapping.
+// /goat-admin pronouns once every role has been found. Lists the full mapping.
 // Fields: .Lines
 var PronounsSetMsg = msg("pronouns_set", `The 𓃵 𝕘𝕠𝕒𝕥 now knows these pronoun roles:
 {{.Lines}}`)
 
-// /goat pronouns when something entered doesn't match a role. Nothing is saved.
+// /goat-admin pronouns when something entered doesn't match a role. Nothing is saved.
 // Fields: .Lines
 var PronounsUnknownMsg = msg("pronouns_unknown", `Nothing was changed. These don't match any role:
 {{.Lines}}`)
@@ -406,11 +406,11 @@ To much surprise, no thieving has taken place, despite {{.Count}} {{if eq .Count
 {{if .Holder}}{{.Holder}} keeps the 𓃵 𝕘𝕠𝕒𝕥, merely by happenstance.{{else}}The 𓃵 𝕘𝕠𝕒𝕥 remains unclaimed, merely by happenstance.{{end}}
 Only the wisest in the Kingdom can decipher this strange and concerning message: {{.Reason}}.{{if not .Transient}}
 Heed it, wise ones: the bot's own role must sit above the 𝕘𝕠𝕒𝕥 keeper role in Server Settings.
-Drag it higher, then run /goat resolve to settle this round properly.{{end}}`)
+Drag it higher, then run /goat-admin resolve to settle this round properly.{{end}}`)
 
 // Ephemeral. An admin command ran but no announcement channel is configured.
 // Fields: .Channel .Minutes
-var ChannelMissingMsg = msg("channel_missing", `Nowhere to announce it. Run /goat config channel:#somewhere first, then try again.`)
+var ChannelMissingMsg = msg("channel_missing", `Nowhere to announce it. Run /goat-admin config channel:#somewhere first, then try again.`)
 
 // Ephemeral. The goat role was deleted out from under the bot and could not be
 // recreated.
@@ -431,6 +431,7 @@ var (
 	DescSteal           = "Creep up on the goat and try to steal it this round"
 	DescPet             = "Pet the goat, if it is yours. Once per round, and it may backfire"
 	DescGoat            = "The goat"
+	DescGoatAdmin       = "Run the goat game (admin)"
 	DescStatus          = "Where the goat is and how long is left"
 	DescHistory         = "The ledger of past keepers, thievings and escapes"
 	DescShow            = "Look upon the goat, and show it off if it is yours"

@@ -1232,3 +1232,33 @@ func TestResolveRoleValue(t *testing.T) {
 		}
 	}
 }
+
+func TestAdminCommandsAreHiddenFromEveryoneElse(t *testing.T) {
+	subs := map[string]map[string]bool{}
+	var adminPerms *int64
+	for _, c := range CommandDefs() {
+		subs[c.Name] = map[string]bool{}
+		for _, o := range c.Options {
+			subs[c.Name][o.Name] = true
+		}
+		if c.Name == "goat-admin" {
+			adminPerms = c.DefaultMemberPermissions
+		}
+	}
+	if adminPerms == nil || *adminPerms != discordgo.PermissionManageServer {
+		t.Fatalf("goat-admin permissions = %v, want Manage Server", adminPerms)
+	}
+	for _, name := range []string{"setup", "reset", "resolve", "config", "clear-home", "pronouns", "clear-pronouns", "preview"} {
+		if !subs["goat-admin"][name] {
+			t.Errorf("%s is missing from goat-admin", name)
+		}
+		if subs["goat"][name] {
+			t.Errorf("%s is still visible to everyone under goat", name)
+		}
+	}
+	for _, name := range []string{"steal", "pet", "status", "history", "show"} {
+		if !subs["goat"][name] {
+			t.Errorf("%s is missing from goat", name)
+		}
+	}
+}

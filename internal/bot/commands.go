@@ -41,6 +41,13 @@ func CommandDefs() []*discordgo.ApplicationCommand {
 					Description: DescShow,
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
+			},
+		},
+		{
+			Name:                     "goat-admin",
+			Description:              DescGoatAdmin,
+			DefaultMemberPermissions: ptr(int64(discordgo.PermissionManageServer)),
+			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Name:        "setup",
 					Description: DescSetup,
@@ -123,7 +130,7 @@ func ptr[T any](v T) *T { return &v }
 
 func (h handler) autocomplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.ApplicationCommandData()
-	if len(data.Options) == 0 || data.Options[0].Name != "pronouns" {
+	if data.Name != "goat-admin" || len(data.Options) == 0 || data.Options[0].Name != "pronouns" {
 		return
 	}
 	typed := ""
@@ -271,8 +278,11 @@ func (h handler) route(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	var body string
-	if data.Name == "goat" {
-		body = h.goat(s, i, sub, data)
+	switch data.Name {
+	case "goat":
+		body = h.goat(i, sub)
+	case "goat-admin":
+		body = h.admin(s, i, sub, data)
 	}
 
 	if strings.TrimSpace(body) == "" {
@@ -298,7 +308,7 @@ func (h handler) steal(i *discordgo.InteractionCreate) string {
 	}
 }
 
-func (h handler) goat(s *discordgo.Session, i *discordgo.InteractionCreate, sub string, data discordgo.ApplicationCommandInteractionData) string {
+func (h handler) goat(i *discordgo.InteractionCreate, sub string) string {
 	switch sub {
 	case "steal":
 		return h.steal(i)
@@ -311,7 +321,10 @@ func (h handler) goat(s *discordgo.Session, i *discordgo.InteractionCreate, sub 
 	case "show":
 		return h.show(i)
 	}
+	return ""
+}
 
+func (h handler) admin(s *discordgo.Session, i *discordgo.InteractionCreate, sub string, data discordgo.ApplicationCommandInteractionData) string {
 	if !isAdmin(i) {
 		return render(NotAdminMsg, MsgData{})
 	}
