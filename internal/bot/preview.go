@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"sort"
 	"strings"
 	"text/template"
@@ -33,13 +34,20 @@ func AllMessages() []Message {
 		{"EscapedUnheldMsg", EscapedUnheldMsg},
 		{"HomeMsg", HomeMsg},
 		{"ResetMsg", ResetMsg},
+		{"PetBrokeFreeMsg", PetBrokeFreeMsg},
+		{"PetNoEffectMsg", PetNoEffectMsg},
+		{"PetBonusMsg", PetBonusMsg},
+		{"PetLoyalMsg", PetLoyalMsg},
 		{"EnteredMsg", EnteredMsg},
 		{"AlreadyEnteredMsg", AlreadyEnteredMsg},
 		{"YouHoldItMsg", YouHoldItMsg},
+		{"AlreadyPettedMsg", AlreadyPettedMsg},
 		{"NoRoundMsg", NoRoundMsg},
 		{"NotAdminMsg", NotAdminMsg},
 		{"AlreadyRunningMsg", AlreadyRunningMsg},
 		{"ConfigDoneMsg", ConfigDoneMsg},
+		{"PronounsSetMsg", PronounsSetMsg},
+		{"PronounsUnknownMsg", PronounsUnknownMsg},
 		{"StatusMsg", StatusMsg},
 		{"StatusUnheldMsg", StatusUnheldMsg},
 		{"HistoryHeaderMsg", HistoryHeaderMsg},
@@ -55,12 +63,12 @@ func AllMessages() []Message {
 }
 
 func (g *Game) Preview(channelID string, all bool) string {
-	data := previewData()
 	odd := map[rune]bool{}
 	var posted, skipped int
 	var problems []string
 
 	for _, m := range AllMessages() {
+		data := previewData()
 		body := render(m.Tmpl, data)
 		if body == "" {
 			problems = append(problems, m.Name+" is empty")
@@ -76,8 +84,13 @@ func (g *Game) Preview(channelID string, all bool) string {
 		}
 		collectOdd(body, odd)
 
-		g.preview(channelID, "-# "+m.Name)
-		g.preview(channelID, body)
+		label := "-# " + m.Name + " · " + previewLabel(data)
+		if len([]rune(body))+1+len([]rune(label)) <= discordLimit {
+			g.preview(channelID, body+"\n"+label)
+		} else {
+			g.preview(channelID, body)
+			g.preview(channelID, label)
+		}
 		posted++
 	}
 
@@ -147,32 +160,70 @@ func oddList(odd map[rune]bool) string {
 }
 
 func previewData() MsgData {
-	deadline := time.Now().Add(37 * time.Minute)
+	deadline := time.Now().Add(time.Duration(5+rand.IntN(55)) * time.Minute)
 	stamp := func(t time.Time, style string) string {
 		return fmt.Sprintf("<t:%d:%s>", t.Unix(), style)
 	}
-	return MsgData{
-		Holder:       "@Alice",
-		Winner:       "@Bob",
-		Loser:        "@Alice",
-		Actor:        "@Mod",
-		User:         "@Charlie",
-		Challengers:  "@Bob, @Charlie, and @Dave",
-		Count:        3,
-		Streak:       4,
-		Deadline:     stamp(deadline, "R"),
-		DeadlineAt:   stamp(deadline, "t"),
-		HeldSince:    stamp(time.Now().Add(-3*time.Hour), "R"),
-		Held:         "3 hours",
-		Free:         "22 minutes",
-		Total:        47,
-		Escapes:      3,
-		JourneysHome: 2,
-		Minutes:      60,
-		Channel:      "#goat",
-		From:         stamp(time.Now().Add(-4*time.Hour), "t"),
-		To:           stamp(time.Now().Add(-3*time.Hour), "t"),
-		Lines:        "- @Alice held the goat from 4:00 PM until 6:00 PM.\n- @Bob held the goat from 3:00 PM until 4:00 PM.",
-		Reason:       "Missing Permissions",
+	sets := []string{"she", "he", "they"}
+	loser := "@Alice"
+	if rand.IntN(2) == 0 {
+		loser = ""
 	}
+	return MsgData{
+		Holder:         "@Alice",
+		Winner:         "@Bob",
+		Loser:          loser,
+		Actor:          "@Mod",
+		User:           "@Charlie",
+		Challengers:    "@Bob, @Charlie, and @Dave",
+		Count:          1 + rand.IntN(4),
+		Streak:         rand.IntN(5),
+		Deadline:       stamp(deadline, "R"),
+		DeadlineAt:     stamp(deadline, "t"),
+		HeldSince:      stamp(time.Now().Add(-3*time.Hour), "R"),
+		Held:           "3 hours",
+		Free:           "22 minutes",
+		Total:          rand.IntN(50),
+		Escapes:        rand.IntN(5),
+		JourneysHome:   rand.IntN(3),
+		Minutes:        []int{1, 30, 60}[rand.IntN(3)],
+		Channel:        "#goat",
+		From:           stamp(time.Now().Add(-4*time.Hour), "t"),
+		To:             stamp(time.Now().Add(-3*time.Hour), "t"),
+		Lines:          previewLines(stamp),
+		Reason:         "Missing Permissions",
+		Transient:      rand.IntN(2) == 0,
+		Friend:         rand.IntN(2) == 0,
+		HolderPronouns: Pronouns{set: sets[rand.IntN(len(sets))]},
+		WinnerPronouns: Pronouns{set: sets[rand.IntN(len(sets))]},
+	}
+}
+
+func previewLines(stamp func(time.Time, string) string) string {
+	at := func(h time.Duration) string { return stamp(time.Now().Add(-h*time.Hour), "t") }
+	return strings.Join([]string{
+		render(HistoryDayMsg, MsgData{From: stamp(time.Now(), "D")}),
+		render(HistoryLineMsg, MsgData{User: "@Alice", From: at(4), To: at(3)}),
+		render(HistoryLineMsg, MsgData{User: "@Bob", From: at(6), To: at(4)}),
+	}, "\n")
+}
+
+func previewLabel(d MsgData) string {
+	parts := []string{
+		"holder " + d.HolderPronouns.They(),
+		"winner " + d.WinnerPronouns.They(),
+		fmt.Sprintf("count %d", d.Count),
+		fmt.Sprintf("streak %d", d.Streak),
+		fmt.Sprintf("%d min rounds", d.Minutes),
+	}
+	if d.Friend {
+		parts = append(parts, "friend")
+	}
+	if d.Loser == "" {
+		parts = append(parts, "no previous keeper")
+	}
+	if d.Transient {
+		parts = append(parts, "transient error")
+	}
+	return strings.Join(parts, " · ")
 }
