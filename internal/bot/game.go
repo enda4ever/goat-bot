@@ -38,7 +38,7 @@ func NewGame(cfg Config, dg Discord, store Store, s *State, rng *rand.Rand) *Gam
 		dg:         dg,
 		store:      store,
 		rng:        rng,
-		retryDelay: 2 * time.Second,
+		retryDelay: 1 * time.Second,
 		s:          s,
 		reqs:       make(chan func()),
 	}
@@ -161,9 +161,11 @@ func transient(err error) bool {
 	return true
 }
 
+const roleAttempts = 2
+
 func (g *Game) giveRole(userID, roleID string) error {
 	var err error
-	for attempt := 1; attempt <= 4; attempt++ {
+	for attempt := 1; attempt <= roleAttempts; attempt++ {
 		err = g.dg.GuildMemberRoleAdd(g.cfg.GuildID, userID, roleID)
 		if err == nil {
 			return nil
@@ -171,7 +173,7 @@ func (g *Game) giveRole(userID, roleID string) error {
 		if !transient(err) {
 			return err
 		}
-		log.Printf("discord: giving the goat role to %s failed (attempt %d of 4), retrying: %v", userID, attempt, err)
+		log.Printf("discord: giving role %s to %s failed (attempt %d of %d), retrying: %v", roleID, userID, attempt, roleAttempts, err)
 		time.Sleep(time.Duration(attempt) * g.retryDelay)
 	}
 	return err
@@ -179,7 +181,7 @@ func (g *Game) giveRole(userID, roleID string) error {
 
 func (g *Game) takeRole(userID, roleID string) error {
 	var err error
-	for attempt := 1; attempt <= 4; attempt++ {
+	for attempt := 1; attempt <= roleAttempts; attempt++ {
 		err = g.dg.GuildMemberRoleRemove(g.cfg.GuildID, userID, roleID)
 		if err == nil {
 			return nil
@@ -187,7 +189,7 @@ func (g *Game) takeRole(userID, roleID string) error {
 		if !transient(err) {
 			return err
 		}
-		log.Printf("discord: taking the goat role from %s failed (attempt %d of 4), retrying: %v", userID, attempt, err)
+		log.Printf("discord: taking role %s from %s failed (attempt %d of %d), retrying: %v", roleID, userID, attempt, roleAttempts, err)
 		time.Sleep(time.Duration(attempt) * g.retryDelay)
 	}
 	return err
@@ -205,16 +207,17 @@ func (g *Game) dressHolder(userID string, now time.Time) error {
 	return nil
 }
 
-func (g *Game) undressHolder(userID string) {
-	if err := g.takeRole(userID, g.s.GoatRoleID); err != nil {
-		log.Printf("discord: could not take the goat role from %s, continuing anyway: %v", userID, err)
+func (g *Game) undressHolder(userID string) error {
+	err := g.takeRole(userID, g.s.GoatRoleID)
+	if err != nil {
+		log.Printf("discord: could not take the goat role from %s: %v", userID, err)
 	}
-	if g.s.FriendRoleID == "" {
-		return
+	if g.s.FriendRoleID != "" {
+		if ferr := g.takeRole(userID, g.s.FriendRoleID); ferr != nil {
+			log.Printf("discord: could not take the friend role from %s, continuing anyway: %v", userID, ferr)
+		}
 	}
-	if err := g.takeRole(userID, g.s.FriendRoleID); err != nil {
-		log.Printf("discord: could not take the friend role from %s, continuing anyway: %v", userID, err)
-	}
+	return err
 }
 
 func (g *Game) isFriend(userID string, now time.Time) bool {
@@ -288,25 +291,40 @@ func (g *Game) resolve() {
 	}
 	winner := live[draw]
 
+	loser := g.s.HolderID
+	if loser != "" {
+		if err := g.undressHolder(loser); err != nil {
+			g.startRound(now)
+			g.save()
+			g.announce(RoleFailedMsg, MsgData{
+				Winner:    mention(winner),
+				Holder:    mention(loser),
+				Count:     len(live),
+				Transient: transient(err),
+				Reason:    err.Error(),
+			})
+			return
+		}
+		g.s.recordReign(now)
+		g.s.TotalTransfers++
+	}
+
 	if err := g.dressHolder(winner, now); err != nil {
-		log.Printf("discord: could not give the goat role: %v", err)
+		log.Printf("discord: the goat is loose, nobody could be given the role: %v", err)
+		g.s.HolderID = ""
+		if g.s.UnheldSince.IsZero() {
+			g.s.UnheldSince = now
+		}
 		g.startRound(now)
 		g.save()
 		g.announce(RoleFailedMsg, MsgData{
 			Winner:    mention(winner),
-			Holder:    mention(g.s.HolderID),
+			Holder:    "",
 			Count:     len(live),
 			Transient: transient(err),
 			Reason:    err.Error(),
 		})
 		return
-	}
-
-	loser := g.s.HolderID
-	if loser != "" {
-		g.undressHolder(loser)
-		g.s.recordReign(now)
-		g.s.TotalTransfers++
 	}
 
 	g.s.HolderID = winner
@@ -340,7 +358,17 @@ func (g *Game) resolve() {
 func (g *Game) slipAway(now time.Time, live []string, escaped bool, prevHolder string) {
 	loser := g.s.HolderID
 	if loser != "" {
-		g.undressHolder(loser)
+		if err := g.undressHolder(loser); err != nil {
+			g.startRound(now)
+			g.save()
+			g.announce(RoleFailedMsg, MsgData{
+				Holder:    mention(loser),
+				Count:     len(live),
+				Transient: transient(err),
+				Reason:    err.Error(),
+			})
+			return
+		}
 		g.s.recordReign(now)
 	}
 	g.s.TotalEscapes++
@@ -470,7 +498,9 @@ func (g *Game) pet(userID string) (MsgData, petOutcome, error) {
 		if friend {
 			return data, petNoEffect, ErrAlreadyPetted
 		}
-		g.breakFree(userID, now, &data)
+		if !g.breakFree(userID, now, &data) {
+			return data, petNoEffect, nil
+		}
 		g.save()
 		return data, petBrokeFree, nil
 	}
@@ -491,8 +521,8 @@ func (g *Game) pet(userID string) (MsgData, petOutcome, error) {
 		}
 	}
 
-	if out == petBrokeFree {
-		g.breakFree(userID, now, &data)
+	if out == petBrokeFree && !g.breakFree(userID, now, &data) {
+		out = petNoEffect
 	}
 	if out == petBonusRound {
 		g.s.BonusRounds++
@@ -501,14 +531,19 @@ func (g *Game) pet(userID string) (MsgData, petOutcome, error) {
 	return data, out, nil
 }
 
-func (g *Game) breakFree(userID string, now time.Time, data *MsgData) {
-	g.undressHolder(userID)
+// Reports whether the goat actually got away. If the role will not come off,
+// it has not, and saying otherwise would leave the holder still wearing it.
+func (g *Game) breakFree(userID string, now time.Time, data *MsgData) bool {
+	if err := g.undressHolder(userID); err != nil {
+		return false
+	}
 	g.s.recordReign(now)
 	g.s.TotalEscapes++
 	if g.s.UnheldSince.IsZero() {
 		g.s.UnheldSince = now
 	}
 	data.Free = heldFor(g.s.UnheldSince)
+	return true
 }
 
 func (g *Game) steal(userID string) (MsgData, error) {
@@ -578,7 +613,9 @@ func (g *Game) reset(actorID string) (MsgData, error) {
 
 	now := time.Now()
 	if g.s.HolderID != "" {
-		g.undressHolder(g.s.HolderID)
+		if err := g.undressHolder(g.s.HolderID); err != nil {
+			return MsgData{Holder: mention(g.s.HolderID), Reason: err.Error()}, err
+		}
 	}
 	g.s.recordReign(now)
 	g.s.UnheldSince = now
