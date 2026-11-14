@@ -2,6 +2,9 @@ services:
   goat:
     build: .
     restart: unless-stopped
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     env_file: .env
     environment:
       STATE_PATH: /data/state.json

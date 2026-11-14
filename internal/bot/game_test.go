@@ -163,11 +163,11 @@ func TestStreakCountsRoundsSurvived(t *testing.T) {
 	}
 }
 
-func TestRoleAddFailureCommitsNothing(t *testing.T) {
+func TestRoleRemoveFailureAbortsTransfer(t *testing.T) {
 	s := baseState()
 	s.Challengers = []string{"bob"}
 	game, fake, _ := newTestGame(t, s, "alice", "bob")
-	fake.failRoleAdd = errForced
+	fake.failRoleRemove = errForced
 
 	game.resolve()
 
@@ -181,7 +181,7 @@ func TestRoleAddFailureCommitsNothing(t *testing.T) {
 		t.Errorf("history = %+v, want empty", s.History)
 	}
 	if got := lastSent(fake); !strings.HasPrefix(got, "ROLE_FAILED") {
-		t.Fatalf("announced %q, want the role-failure warning", got)
+		t.Errorf("announced %q, want the role-failure warning", got)
 	}
 	for _, m := range fake.sent {
 		if strings.HasPrefix(m, "STOLEN") {
@@ -190,7 +190,9 @@ func TestRoleAddFailureCommitsNothing(t *testing.T) {
 	}
 }
 
-func TestRoleRemoveFailureStillCommits(t *testing.T) {
+// The removal must be attempted before the grant. If it runs the other way
+// round a failed removal leaves two members wearing the goat role.
+func TestRemovalIsAttemptedBeforeGrant(t *testing.T) {
 	s := baseState()
 	s.Challengers = []string{"bob"}
 	game, fake, _ := newTestGame(t, s, "alice", "bob")
@@ -198,11 +200,35 @@ func TestRoleRemoveFailureStillCommits(t *testing.T) {
 
 	game.resolve()
 
-	if s.HolderID != "bob" {
-		t.Errorf("holder = %q, want bob", s.HolderID)
+	if got := fake.holdersOf("role-goat"); len(got) != 0 {
+		t.Errorf("goat role held by %v, want nobody to have been granted it", got)
 	}
-	if got := lastSent(fake); !strings.HasPrefix(got, "STOLEN") {
-		t.Errorf("announced %q, want the stolen message", got)
+	if fake.addCalls != 0 {
+		t.Errorf("role add attempts = %d, want 0; the grant must come after a successful removal", fake.addCalls)
+	}
+}
+
+// Removal succeeded but the grant failed: the goat belongs to nobody, which is
+// a state the bot already models and rehomes on the next round.
+func TestGrantFailureLeavesTheGoatLoose(t *testing.T) {
+	s := baseState()
+	s.Challengers = []string{"bob"}
+	game, fake, _ := newTestGame(t, s, "alice", "bob")
+	fake.failRoleAdd = errForced
+
+	game.resolve()
+
+	if s.HolderID != "" {
+		t.Errorf("holder = %q, want the goat unheld", s.HolderID)
+	}
+	if s.UnheldSince.IsZero() {
+		t.Error("UnheldSince was not set, so the goat cannot find its way home")
+	}
+	if got := fake.holdersOf("role-goat"); len(got) != 0 {
+		t.Errorf("goat role still held by %v, want nobody", got)
+	}
+	if got := lastSent(fake); !strings.HasPrefix(got, "ROLE_FAILED") {
+		t.Errorf("announced %q, want the role-failure warning", got)
 	}
 }
 
@@ -682,15 +708,15 @@ func TestTransientRoleFailureIsRetried(t *testing.T) {
 	s := baseState()
 	s.Challengers = []string{"bob"}
 	game, fake, _ := newTestGame(t, s, "alice", "bob")
-	fake.flakyAddTimes = 2
+	fake.flakyAddTimes = 1
 
 	game.resolve()
 
 	if s.HolderID != "bob" {
 		t.Fatalf("holder = %q, want bob; a 503 should be retried, not thrown away", s.HolderID)
 	}
-	if fake.addCalls != 3 {
-		t.Errorf("role add attempts = %d, want 3", fake.addCalls)
+	if fake.addCalls != 2 {
+		t.Errorf("role add attempts = %d, want 2; the budget is deliberately short so retries cannot starve the command handler", fake.addCalls)
 	}
 	if got := lastSent(fake); !strings.HasPrefix(got, "STOLEN") {
 		t.Errorf("announced %q, want the stolen message", got)
@@ -708,8 +734,8 @@ func TestPermissionFailureIsNotRetried(t *testing.T) {
 	if fake.addCalls != 1 {
 		t.Errorf("role add attempts = %d, want 1; a 403 will never succeed on retry", fake.addCalls)
 	}
-	if s.HolderID != "alice" {
-		t.Errorf("holder = %q, want alice to keep it", s.HolderID)
+	if s.HolderID != "" {
+		t.Errorf("holder = %q, want the goat unheld; the removal succeeded before the grant failed", s.HolderID)
 	}
 }
 
@@ -1260,5 +1286,42 @@ func TestAdminCommandsAreHiddenFromEveryoneElse(t *testing.T) {
 		if !subs["goat"][name] {
 			t.Errorf("%s is missing from goat", name)
 		}
+	}
+}
+
+// Petting could previously announce that the goat broke free while the holder
+// was still wearing the role. A stuck role now means the pet simply had no
+// effect, which is what a player actually sees.
+func TestPetCannotFreeAGoatWhoseRoleIsStuck(t *testing.T) {
+	s := baseState()
+	s.PettedThisRound = true
+	game, fake, _ := newTestGame(t, s, "alice")
+	fake.failRoleRemove = errForced
+
+	_, out, err := game.pet("alice")
+	if err != nil {
+		t.Fatalf("pet: %v", err)
+	}
+	if out == petBrokeFree {
+		t.Error("reported the goat broke free, but the role never came off")
+	}
+	if s.HolderID != "alice" {
+		t.Errorf("holder = %q, want alice still holding it", s.HolderID)
+	}
+	if s.TotalEscapes != 0 {
+		t.Errorf("escapes = %d, want 0", s.TotalEscapes)
+	}
+}
+
+func TestResetRefusesWhenRoleWillNotCommeOff(t *testing.T) {
+	s := baseState()
+	game, fake, _ := newTestGame(t, s, "alice")
+	fake.failRoleRemove = errForced
+
+	if _, err := game.reset("admin"); err == nil {
+		t.Fatal("reset reported success despite the role being stuck")
+	}
+	if s.HolderID != "alice" {
+		t.Errorf("holder = %q, want alice unchanged", s.HolderID)
 	}
 }
