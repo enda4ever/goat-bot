@@ -1,3 +1,9 @@
+ifeq ($(OS),Windows_NT)
+BASH := C:/Program Files/Git/bin/bash.exe
+else
+BASH := bash
+endif
+
 .DEFAULT_GOAL := help
 .PHONY: help up down logs backup run test lint
 
@@ -20,8 +26,7 @@ logs:
 	docker compose logs -f
 
 backup:
-	mkdir -p backups
-	cp data/state.json backups/state-$$(date +%Y%m%d-%H%M%S).json
+	"$(BASH)" ops/backup.sh
 
 run:
 	go run ./cmd/goat-bot

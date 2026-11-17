@@ -1,6 +1,6 @@
 # Privacy Policy for Goat Bot
 
-Last updated: 22 October 2026
+Last updated: 16 November 2026
 
 -----
 
@@ -18,6 +18,8 @@ The reign records keep the last fifty times the goat changed hands, and no more.
 
 The list of who tried to steal this round is wiped at the end of every round, win or lose.
 
+One recent copy of the file is also kept on the same machine, so a bad update doesn't cost the goat its memory. It obeys the same fifty-reign limit as the file it came from, and each new copy replaces the last.
+
 -----
 
 #### Where the data is stored:
@@ -26,7 +28,7 @@ One `state.json` file on whichever machine is running the bot. It doesn't go any
 -----
 
 #### You can have your user ID removed from storage:
-Ask whoever runs the bot and they'll take your rows out of the history file by hand. There's no command for it yet. Leaving the server doesn't clear anything on its own, so if you want it gone you do have to say so.
+Ask whoever runs the bot and they'll take your rows out of the history file and its copy by hand. There's no command for it yet. Leaving the server doesn't clear anything on its own, so if you want it gone you do have to say so.
 
 -----
 
