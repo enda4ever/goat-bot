@@ -1,6 +1,7 @@
 .git
 .env
 data
+backups
 state.json
 state.json.tmp
 *.exe

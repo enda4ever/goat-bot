@@ -2,6 +2,7 @@
 state.json
 state.json.tmp
 /data/
+/backups/
 /goat-bot
 /goat-bot.exe
 .DS_Store
